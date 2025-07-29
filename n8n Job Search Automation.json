@@ -1,0 +1,1643 @@
+{
+  "name": "Job automation",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -496,
+        480
+      ],
+      "id": "fe706a8e-13bc-4582-9de0-ed3fa5ab1715",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/REDACTED.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        128,
+        736
+      ],
+      "id": "e295111c-2e3b-43c3-89c5-2be96cc882ce",
+      "name": "Wide Tech"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/REDACTED.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        128,
+        224
+      ],
+      "id": "166c10ef-dadb-44ac-a973-035deee0c8e9",
+      "name": "Assana"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/REDACTED.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        608
+      ],
+      "id": "c16f7601-d11a-4824-8383-4682896023f6",
+      "name": "Reddit"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/REDACTED.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        480
+      ],
+      "id": "fac173e8-82f1-4cb7-bebe-e8dbaeebcc8e",
+      "name": "Meta"
+    },
+    {
+      "parameters": {
+        "jsCode": "const includeKeywords = [\n  \"associate\",\n  \"coordinator\",\n  \"analyst\",\n  \"assistant\",\n  \"junior\",\n  \"entry\",\n  \"specialist\",\n  \"representative\",\n  \"project manager\",\n  \"product manager\",\n  \"account manager\",\n  \"customer success\",\n  \"business operations\",\n  \"revops\",\n  \"sales development\",\n  \"business development\"\n];\n\nconst excludeKeywords = [\n  \"senior\",\n  \"sr.\",\n  \"lead\",\n  \"principal\",\n  \"director\",\n  \"head\",\n  \"vp\",\n  \"vice president\",\n  \"engineer\",\n  \"developer\",\n  \"scientist\",\n  \"architect\",\n  \"grad\"\n];\n\nreturn items.filter(item => {\n  const title = (item.json.title || \"\").toLowerCase();\n\n  const isExcluded = excludeKeywords.some(keyword => title.includes(keyword));\n  const isIncluded = includeKeywords.some(keyword => title.includes(keyword));\n\n  return isIncluded && !isExcluded;\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        128
+      ],
+      "id": "c92624ab-aea7-4d73-8279-3b9cf5e793dc",
+      "name": "Extract Job Postings",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1qD5otSXAVwCayMidAfVJII_0eLxkThjxzywzaDD-r1k",
+          "mode": "list",
+          "cachedResultName": "Job Listings",
+          "cachedResultUrl": "https://docs.google.com/REDACTED"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/REDACTED"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1152,
+        128
+      ],
+      "id": "dd2fa347-d7de-46e8-af7f-3d6014baab76",
+      "name": "Check Job Ids",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REDACTED",
+          "name": "REDACTED"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a job application assistant.\n\nYou will be given a job posting. Extract and return a single JSON object with the following structure. Use snake_case for all keys. Keep values concise and token-efficient. All keys in the structure must be present in the final output, even if some values are not known or mentioned.\n\nINPUT:\n{{ $json.data }}\n\nExtract and return this structure:\n\n{\n  \"job_id\": \"\",                       // from job URL\n  \"company_name\": \"\",                // from title\n  \"position\": \"\",                    // from title\n  \"salary\": \"\",                      // if mentioned, else \"\"\n  \"location\": \"\",                    // city + country or region\n  \"posted_date\": \"\",                 // ISO format YYYY-MM-DD\n  \"skills_and_tech\": [],             // [\"React\", \"Node.js\", \"AWS\"]\n  \"role_description\": \"\",            // 1\u20133 sentences summarizing role\n  \"yoe\": \"\",                         // required or implied years of experience\n  \"company_info\": \"\",               // summary from job post\n  \"job_url\": \"\",                     // public job post link\n  \"application_url\": \"\",            // same as job_url unless specified separately\n\n  // Company metadata \u2014 use your internal knowledge to simulate a lookup\n  \"company_overview\": \"\",           // max 2 sentences\n  \"industry\": \"\",                   // e.g. Financial Services\n  \"business_model\": \"\",             // 1 sentence on how revenue is generated\n  \"company_size\": \"\",               // e.g. \"200\u2013500\", leave blank if unknown\n  \"annual_revenue\": \"\",             // e.g. \"\u00a350M\", leave blank if unknown\n  \"mission_statement\": \"\",          // 1 sentence, leave blank if not public\n  \"core_values\": []                 // up to 5 values, e.g. [\"Integrity\", \"Innovation\"]\n}\n\nInstructions:\n- Use your internal training data as of September 2023 to simulate lookup of company metadata.\n- Include every field exactly as listed, even if the value is an empty string or empty array.\n- Remove all newlines, markdown, bullet points, or commentary.\n- Return only valid JSON \u2014 no code blocks, comments, or extra text before/after the object.",
+              "role": "system"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        976,
+        576
+      ],
+      "id": "711e0c72-6e61-4966-966a-e42a67d46deb",
+      "name": "Extract And Gather Company Info",
+      "retryOnFail": true,
+      "credentials": {
+        "openAiApi": {
+          "id": "REDACTED",
+          "name": "REDACTED"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1qD5otSXAVwCayMidAfVJII_0eLxkThjxzywzaDD-r1k",
+          "mode": "list",
+          "cachedResultName": "Job Listings",
+          "cachedResultUrl": "https://docs.google.com/REDACTED"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/REDACTED"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Title": "={{ $json.message.content.position }}",
+            "Company Name": "={{ $json.message.content.company_name }}",
+            "Link": "={{ $json.message.content.application_url }}",
+            "Location": "={{ $json.message.content.location }}",
+            "Company Overview": "={{ $json.message.content.company_overview }}",
+            "Job Description": "={{ $json.message.content.role_description }}",
+            "Compensation": "={{ $json.message.content.salary }}",
+            "Job ID": "={{ $json.message.content.job_id }}",
+            "Post Date": "={{ $json.message.content.posted_date }}",
+            "Industry": "={{ $json.message.content.industry }}"
+          },
+          "matchingColumns": [
+            "Job ID"
+          ],
+          "schema": [
+            {
+              "id": "Company Name",
+              "displayName": "Company Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Company Overview",
+              "displayName": "Company Overview",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Industry",
+              "displayName": "Industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Link",
+              "displayName": "Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Post Date",
+              "displayName": "Post Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Job ID",
+              "displayName": "Job ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Title",
+              "displayName": "Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Job Description",
+              "displayName": "Job Description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Skills Ranking",
+              "displayName": "Skills Ranking",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Compensation",
+              "displayName": "Compensation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Location",
+              "displayName": "Location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Cover Letter",
+              "displayName": "Cover Letter",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1648,
+        128
+      ],
+      "id": "990286b5-f461-4d3c-901a-bbf97b7aa124",
+      "name": "Update Job Sheet",
+      "retryOnFail": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REDACTED",
+          "name": "REDACTED"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "url": "https://docs.google.com/REDACTED",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "googleDocsOAuth2Api",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1840,
+        128
+      ],
+      "id": "243306d6-23fb-4566-b8f2-52280019c21a",
+      "name": "get resume data",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "REDACTED",
+          "name": "REDACTED"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=i need this data broken down please return in json format with the following keys:\n{\n \"documentId\":\n \"content\":\n}\n{{ $json.data }}"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        2016,
+        128
+      ],
+      "id": "8f832e66-94c1-432e-be42-23181d033129",
+      "name": "Convert data to cacheable JSON ",
+      "credentials": {
+        "openAiApi": {
+          "id": "REDACTED",
+          "name": "REDACTED"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "15eqbhw8N6g4aRQubYDOiMJuuGSgAdG0-3b8CGCp-uoE",
+          "mode": "list",
+          "cachedResultName": "OpenAi Cache ",
+          "cachedResultUrl": "https://docs.google.com/REDACTED"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "cache",
+          "cachedResultUrl": "https://docs.google.com/REDACTED"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "hash",
+              "lookupValue": "={{ $json.data }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1840,
+        352
+      ],
+      "id": "ef11ee90-fa87-44f9-b21a-647600b2ddb8",
+      "name": "Fetched Cached Content",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REDACTED",
+          "name": "REDACTED"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "414c933e-14ea-4304-acf3-09dada45e22c",
+              "leftValue": "={{ $json.hash }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2016,
+        352
+      ],
+      "id": "778c9ba0-4860-4b66-ad2c-bf9dcd1c6a4b",
+      "name": "If Not Cached"
+    },
+    {
+      "parameters": {
+        "value": "={{ $json[\"content\"] }}"
+      },
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        2400,
+        336
+      ],
+      "id": "02aa5ddf-9b88-4037-ba72-0261d7366a31",
+      "name": "Generate Hash (Caching)"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1712,
+        768
+      ],
+      "id": "7ef331d1-aa68-48b7-a5d8-85cb654596fa",
+      "name": "Merge job and Resume"
+    },
+    {
+      "parameters": {
+        "jsCode": "const [resumeData, jobData] = items.map(i => i.json);\n\nreturn [\n  {\n    json: {\n      job:jobData,\n      resume: resumeData\n    }\n  }\n]"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1920,
+        768
+      ],
+      "id": "b8727b42-b4b2-46b2-818e-a80b3c06aced",
+      "name": "Sanatise"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "15eqbhw8N6g4aRQubYDOiMJuuGSgAdG0-3b8CGCp-uoE",
+          "mode": "list",
+          "cachedResultName": "OpenAi Cache ",
+          "cachedResultUrl": "https://docs.google.com/REDACTED"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "cache",
+          "cachedResultUrl": "https://docs.google.com/REDACTED"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "hash": "={{ $('Generate Hash (Caching)').item.json.data }}",
+            "document_id": "={{ $('Generate Hash (Caching)').item.json.doucumentid }}",
+            "content": "={{ $json.message.content }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "hash",
+              "displayName": "hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "document_id",
+              "displayName": "document_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "content",
+              "displayName": "content",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        2544,
+        576
+      ],
+      "id": "138a01d1-06b4-429d-8206-a92842770520",
+      "name": "Add Data to Cache",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REDACTED",
+          "name": "REDACTED"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "GPT-4O-MINI"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a career assistant.\n\nThe following input is a plain-text CV. Parse it and return a strictly valid JSON object with the following structure:\n\n{\n  \"experience\": {\n    \"CompanyName1\": \"Full experience text exactly as it appears under this company\",\n    \"CompanyName2\": \"...\"\n  },\n  \"text_summary\": \"A single-paragraph summary of the candidate's background, strengths, and career path\",\n  \"skills\": [\"List of relevant tools, technologies, methodologies, and transferable skills mentioned in the resume\"],\n  \"yoe\": \"Estimated total years of professional experience based on resume content\"\n}\n\nInstructions:\n- Format all values as clean strings: no escape characters (`\\n`), no Markdown\n- Return only a valid JSON object \u2014 no code blocks, comments, or extra text\n- Do not prepend or append any explanation\n- Do not generate any data not clearly supported by the resume content\n\nInput:\n{{ $json.content }}\n\nOutput:\nOnly return the JSON object.\n"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        2224,
+        576
+      ],
+      "id": "ad80990c-805a-47b1-bfc2-1fcef775a89a",
+      "name": "Structure Resume CV",
+      "credentials": {
+        "openAiApi": {
+          "id": "REDACTED",
+          "name": "REDACTED"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "GPT-4O"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a job application assistant.\n\nYou will be given structured data including:\n1. A job posting with its role description, requirements, and company metadata.\n2. A parsed resume/CV of the applicant including relevant experience and skills.\n\nYour tasks are:\n\n---\n\n**1. Skill Match Evaluation**\n- Analyze the `skills_and_tech` field from the job posting.\n- Compare it to the candidate\u2019s skills and experience.\n- Return a `skill_match` score between 1 and 5:\n  - 5 = Strong alignment with nearly all required skills  \n  - 4 = Good alignment with most core skills  \n  - 3 = Partial match with several important skills  \n  - 2 = Weak match, few relevant skills  \n  - 1 = Poor match, lacks relevant skills  \n- Use your judgment and be honest. The score should reflect actual technical overlap and practical experience. \n\n---\n\n**2. Cover Letter Generation**\nGenerate a tailored, professional cover letter (~300\u2013400 words) that:\n- Highlights the candidate\u2019s most relevant professional and technical experience  \n- Aligns their background with the job requirements, company mission, and values  \n- Emphasizes transferable skills from previous industries  \n- Demonstrates an understanding of the company\u2019s business or industry  \n- Uses a natural, confident, and human tone\u2014grounded and optimistic  \n- Be honest about the candidate\u2019s skill set; avoid exaggeration, filler, or markdown formatting  \n- Do not mention or fabricate any qualifications that are not clearly present in the input  \n- If any job fields (e.g. mission_statement, company_info, salary) are missing or empty, do not mention them in the cover letter\n\n---\n\n**Input Data (structured JSON)**\n\n{\n  \"job\": {\n    \"job_id\": \"{{ $json.job.message.content.job_id }}\",\n    \"company_name\": \"{{ $json.job.message.content.company_name }}\",\n    \"position\": \"{{ $json.job.message.content.position }}\",\n    \"salary\": {{ $json.job.message.content.salary }},\n    \"location\": \"{{ $json.job.message.content.location }}\",\n    \"posted_date\": {{ $json.job.message.content.posted_date }},\n    \"skills_and_tech\": {{ JSON.stringify($json.job.message.content.skills_and_tech) }},\n    \"role_description\":{{ $json.job.message.content.role_description }} ,\n    \"yoe\": \"{{ $json.job.message.content.yoe }}\",\n    \"company_info\": {{ $json.job.message.content.company_overview }},\n    \"job_url\": {{ $json.job.message.content.application_url }},\n    \"industry\": \"{{ $json.job.message.content.industry }}\",\n    \"business_model\": \"{{ $json.job.message.content.business_model }}\",\n    \"company_size\": \"{{ $json.job.message.content.company_size }}\",\n    \"annual_revenue\": \"{{ $json.job.message.content.annual_revenue }}\",\n    \"mission_statement\": \"{{ $json.job.mission_statement || '' }}\",\n    \"core_values\": {{ JSON.stringify($json.job.core_values || []) }}\n  },\n  \"resume\": {\n    \"text_summary\": {{ $json.resume.content }},\n    \"skills\": {{ $json.resume.content.skills }},\n    \"yoe\": {{ $json.resume.content.yoe }},\n    \"experience\": {{ $json.resume.content.experience }}\n  }\n}\n\n---\n\n**Response Format**\nReturn exactly one valid **JSON object** with the following structure:\n\n{\n  \"skill_match\": 1\u20135,\n  \"cover_letter\": \"\" // A page-length cover letter for the job application (~300\u2013400 words)\n}\n\n**Instructions:**\n- Return only a valid JSON object \u2014 no code blocks, no markdown, no extra commentary.\n- Remove all newlines, markdown formatting, or bullet points inside the JSON string values.\n"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        2080,
+        768
+      ],
+      "id": "8ae56ddf-3b9b-44d1-ace2-e2f3623effcd",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": {
+          "id": "REDACTED",
+          "name": "REDACTED"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "268f0e88-80d6-4200-8198-3929dede2526",
+              "name": "doucumentid",
+              "value": "={{ $('Generate Hash (Retrieval)').item.json.message.content.documentId }}",
+              "type": "string"
+            },
+            {
+              "id": "c5ef1f56-5a44-4a05-a965-c3dc6bd1214e",
+              "name": "content",
+              "value": "={{ $('Generate Hash (Retrieval)').item.json.message.content.content }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2208,
+        336
+      ],
+      "id": "82ee53e6-a744-418f-86f1-3b2aa250a088",
+      "name": "Content to Cache"
+    },
+    {
+      "parameters": {
+        "value": "={{ $json.message.content.content }}"
+      },
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        1648,
+        352
+      ],
+      "id": "13701d49-b580-44b0-a2c4-fb8ba78c9e56",
+      "name": "Generate Hash (Retrieval)",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.link }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1152,
+        352
+      ],
+      "id": "f7f948b6-3fdd-45fd-93a5-e36d04183535",
+      "name": "Google Docs HTTP Request",
+      "alwaysOutputData": false,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": {
+          "__rl": true,
+          "value": "1qD5otSXAVwCayMidAfVJII_0eLxkThjxzywzaDD-r1k",
+          "mode": "list",
+          "cachedResultName": "Job Listings",
+          "cachedResultUrl": "https://docs.google.com/REDACTED"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/REDACTED"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Cover Letter": "={{ $json.message.content.cover_letter }}",
+            "Skills Ranking": "={{ $json.message.content.skill_match }}",
+            "Job ID": "={{ $('Sanatise').item.json.job.message.content.job_id }}",
+            "Company Name": "={{ $('Sanatise').item.json.job.message.content.company_name }}",
+            "Job Description": "={{ $('Sanatise').item.json.job.message.content.role_description }}",
+            "Post Date": "={{ $('Sanatise').item.json.job.message.content.posted_date }}",
+            "Title": "={{ $('Sanatise').item.json.job.message.content.position }}",
+            "Link": "={{ $('Sanatise').item.json.job.message.content.application_url }}",
+            "Industry": "={{ $('Sanatise').item.json.job.message.content.industry }}",
+            "Location": "={{ $('Sanatise').item.json.job.message.content.location }}",
+            "Compensation": "={{ $('Sanatise').item.json.job.message.content.salary }}",
+            "Company Overview": "={{ $('Sanatise').item.json.job.message.content.company_info }}"
+          },
+          "matchingColumns": [
+            "Job ID"
+          ],
+          "schema": [
+            {
+              "id": "Company Name",
+              "displayName": "Company Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Company Overview",
+              "displayName": "Company Overview",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Industry",
+              "displayName": "Industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Link",
+              "displayName": "Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Post Date",
+              "displayName": "Post Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Job ID",
+              "displayName": "Job ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Title",
+              "displayName": "Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Job Description",
+              "displayName": "Job Description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Skills Ranking",
+              "displayName": "Skills Ranking",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Compensation",
+              "displayName": "Compensation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Location",
+              "displayName": "Location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Cover Letter",
+              "displayName": "Cover Letter",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        2448,
+        768
+      ],
+      "id": "b6228ae3-b301-4c0b-aa9a-ae81f6157af2",
+      "name": "Update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "REDACTED",
+          "name": "REDACTED"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/REDACTED.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        128,
+        608
+      ],
+      "id": "b34a2263-2631-48b8-a81a-b6f5f6043842",
+      "name": "Sales"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/REDACTED.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -128,
+        352
+      ],
+      "id": "adbb22d3-b73e-4fdb-8904-7f4948ec4929",
+      "name": "Databricks"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        928,
+        336
+      ],
+      "id": "977d373e-6425-4297-acc5-cb3865fca330",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/REDACTED.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        736
+      ],
+      "id": "de032a68-1349-487a-a034-65d3133fe5cd",
+      "name": "Unity"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/REDACTED.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -128,
+        736
+      ],
+      "id": "de83014a-ca5b-4b1c-9e04-166d4f39c991",
+      "name": "Salesforce"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/REDACTED.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        128,
+        480
+      ],
+      "id": "408629f2-da27-4d1d-a766-a630091686ae",
+      "name": "Notion"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/REDACTED.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        224
+      ],
+      "id": "0608eca5-eedf-4522-b7b9-fd17a4c9010b",
+      "name": "Altassin"
+    },
+    {
+      "parameters": {
+        "numberInputs": 8
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        416,
+        240
+      ],
+      "id": "ee42d4df-a56c-4957-ba9e-61c454f13aa2",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "numberInputs": 7
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        416,
+        560
+      ],
+      "id": "0ff8417a-6be0-4940-bf15-10f2a49085a5",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        624,
+        480
+      ],
+      "id": "9f537e53-4cc0-4446-8fd5-176631497146",
+      "name": "Merge2"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/REDACTED.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        128,
+        352
+      ],
+      "id": "193aceeb-d9cb-499c-889a-5c9e884ca6a4",
+      "name": "Entry Tech"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/REDACTED.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -128,
+        480
+      ],
+      "id": "abc5b528-f3b4-4ce4-95df-77b5851e753c",
+      "name": "LinkedIn"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/REDACTED.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        352
+      ],
+      "id": "cb71900d-8e81-4fc8-8427-8fd53facf907",
+      "name": "DoorDash"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/REDACTED.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -128,
+        224
+      ],
+      "id": "f977a5c1-8899-432f-aefc-a92d5f8a40d4",
+      "name": "Amazon"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/REDACTED.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -128,
+        608
+      ],
+      "id": "6e7354dc-40e1-438d-b366-dd77975c8f9c",
+      "name": "Project Management"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Collect all existing Job_IDs from Google Sheet (normalize as strings)\nconst existingJobIds = $items(\"Check Job Ids\")\n  .map(item => item.json[\"Job ID\"])\n  .filter(id => id !== undefined && id !== null)\n  .map(id => id.toString().trim());\n\nconsole.log('Existing Job IDs from Sheet:', existingJobIds);\n\n// 2. Filter job postings by checking if the job ID (from link) exists in the sheet\nconst filtered = $items(\"Extract Job Postings\").filter(item => {\n  const link = item.json.link;\n  if (!link) return false;\n\n  // Extract the job ID from the end of the link\n  const jobId = link.split('-').pop()?.trim();\n\n  console.log(`Checking Job ID from link \"${link}\":`, jobId);\n\n  // Return only if this ID is NOT in the existing ones\n  return jobId && !existingJobIds.includes(jobId);\n});\n\nconsole.log(`Filtered ${filtered.length} new job(s) out of ${$items(\"Extract Job Postings\").length}.`);\n\nreturn filtered;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1328,
+        128
+      ],
+      "id": "3971fc9e-4d07-46a3-9bfa-d1dc3dabcf77",
+      "name": "De-duplicate"
+    }
+  ],
+  "pinData": {
+    "get resume data": [
+      {
+        "json": {
+          "data": "REDACTED_RESUME_HTML"
+        }
+      }
+    ],
+    "Convert data to cacheable JSON ": [
+      {
+        "json": {
+          "data": "REDACTED_RESUME_HTML"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Sales",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Meta",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Assana",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wide Tech",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Unity",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Databricks",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Reddit",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Salesforce",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Altassin",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notion",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Entry Tech",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Amazon",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "DoorDash",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "LinkedIn",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Project Management",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assana": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reddit": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Meta": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 7
+          }
+        ]
+      ]
+    },
+    "Wide Tech": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Extract Job Postings": {
+      "main": [
+        [
+          {
+            "node": "Check Job Ids",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Job Ids": {
+      "main": [
+        [
+          {
+            "node": "De-duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract And Gather Company Info": {
+      "main": [
+        [
+          {
+            "node": "Update Job Sheet",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge job and Resume",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Update Job Sheet": {
+      "main": [
+        [
+          {
+            "node": "get resume data",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "get resume data": {
+      "main": [
+        [
+          {
+            "node": "Convert data to cacheable JSON ",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert data to cacheable JSON ": {
+      "main": [
+        [
+          {
+            "node": "Generate Hash (Retrieval)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetched Cached Content": {
+      "main": [
+        [
+          {
+            "node": "If Not Cached",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Not Cached": {
+      "main": [
+        [
+          {
+            "node": "Content to Cache",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Merge job and Resume",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Hash (Caching)": {
+      "main": [
+        [
+          {
+            "node": "Structure Resume CV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge job and Resume": {
+      "main": [
+        [
+          {
+            "node": "Sanatise",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Data to Cache": {
+      "main": [
+        [
+          {
+            "node": "Merge job and Resume",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structure Resume CV": {
+      "main": [
+        [
+          {
+            "node": "Add Data to Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanatise": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Content to Cache": {
+      "main": [
+        [
+          {
+            "node": "Generate Hash (Caching)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Hash (Retrieval)": {
+      "main": [
+        [
+          {
+            "node": "Fetched Cached Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Docs HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Extract And Gather Company Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sales": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Databricks": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Google Docs HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Unity": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Salesforce": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
+    },
+    "Notion": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
+    },
+    "Altassin": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "Extract Job Postings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Amazon": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Entry Tech": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "DoorDash": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Project Management": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "De-duplicate": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "54713a71-82e7-4137-be51-c25be7a2f883",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6b2fcf62f1a7f34374edba5401bc4aff316863e43c2b645fb4a692d7d2695a90"
+  },
+  "id": "UhidrHfhKmTw5nCX",
+  "tags": []
+}
