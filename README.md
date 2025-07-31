@@ -34,6 +34,22 @@ n8n • JavaScript (custom nodes) • Google Sheets • OpenAI API • rss.app
 
 ---
 
+## 🧭 Visual Overview
+
+### 🔹 Detailed Workflow Diagram  
+A high-level, color-coded breakdown of the full automation flow:
+
+![Detailed Workflow](Media/diagram-detailed.png)
+
+---
+
+### 🔹 Real Workflow from n8n  
+Here’s the live view from my n8n instance, showing the full node structure:
+
+![n8n Screenshot](Media/workflow-light.png)
+
+---
+
 ## 📁 Workflow Overview
 
 - **Feed Sources**: Aggregated via `rss.app`
