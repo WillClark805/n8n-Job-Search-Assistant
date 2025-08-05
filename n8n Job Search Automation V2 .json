@@ -1,0 +1,3127 @@
+{
+  "name": "Job automation",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// 1) Senior-level keywords to exclude\nconst excludeKeywords = [\n  \"senior\",\n  \"sr\\\\.?\\\\b\",\n  \"principal\",\n  \"director\",\n  \"head\",\n  \"vp\",\n  \"vice president\",\n  \"chief\",\n  \"staff\",\n  \"lead\\\\b\",\n  \"manager\\\\b\",\n  \"scientist\",\n  \"architect\",\n  \"engineer\",\n  \"developer\",\n  \"phd\",\n  \"grad\",\n  \"postdoc\",\n  \"legal\"\n].map(k => new RegExp(`\\\\b${k}`, \"i\"));\n\nconst now = new Date();\nconst twoMonthsAgo = new Date(now);\ntwoMonthsAgo.setMonth(now.getMonth() - 2);\nconst currentYear = now.getFullYear();\n\nreturn items.filter(item => {\n  const title = (item.json.title || \"\").trim();\n\n  // 1) Drop anything with a senior-level hint\n  if (excludeKeywords.some(regex => regex.test(title))) {\n    return false;\n  }\n\n  // 2) Parse publication date\n  const pubDate = item.json.pubDate ? new Date(item.json.pubDate) : null;\n  if (!(pubDate instanceof Date) || isNaN(pubDate)) {\n    return false;\n  }\n\n  // 3) Enforce \"this year\" AND \"within two months\"\n  return pubDate.getFullYear() === currentYear\n      && pubDate >= twoMonthsAgo;\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        128
+      ],
+      "id": "[REDACTED]",
+      "name": "Extract Job Postings",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "documentId": "[REDACTED]",
+        "sheetName": {
+          "__rl": true,
+          "value": "[REDACTED]",
+          "mode": "list",
+          "cachedResultName": "[REDACTED]",
+          "cachedResultUrl": "[REDACTED]"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1136,
+        128
+      ],
+      "id": "[REDACTED]",
+      "name": "Check Job Ids",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": "[REDACTED]"
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "[REDACTED]",
+          "mode": "list",
+          "cachedResultName": "[REDACTED]"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a job application assistant.\n\nYou will be given a job posting. Extract and return a single JSON object with the following structure. Use snake_case for all keys. Keep values concise and token-efficient. All keys in the structure must be present in the final output, even if some values are not known or mentioned.\n\n---\nINPUT:\n{{ $json.data }}\n\n---\nExtract and return this structure:\n\n{\n  \"job_id\": \"\",                       // from job URL\n  \"company_name\": \"\",                // from title or post\n  \"position\": \"\",                    // exact job title from the post\n  \"normalized_position\": \"\",         // general role category, e.g. \"Project Coordinator\"\n  \"seniority_level\": \"\",             // \"Entry\", \"Associate\", \"Mid\", \"Senior\", or \"Not specified\"\n  \"salary\": \"\",                      // if mentioned, else \"\"\n  \"location\": \"\",                    // city + country or region\n  \"posted_date\": \"\",                 // ISO format YYYY-MM-DD\n  \"technical_skills\": [],            // tools, platforms, or methods e.g. [\"Salesforce\", \"Excel\", \"SQL\"]\n  \"functional_keywords\": [],         // domain or role-specific terms e.g. [\"project coordination\", \"process optimization\"]\n  \"skills_and_tech\": [],             // union of technical_skills + functional_keywords\n  \"role_description\": \"\",            // 1\u20133 sentence summary of the job\u2019s duties and impact\n  \"yoe\": \"\",                         // required or implied years of experience for the role\n  \"company_info\": \"\",                // any descriptive paragraph from the job post about the company\n  \"job_url\": \"\",                     // public job post link\n  \"application_url\": \"\",             // same as job_url unless specified separately\n\n  // Company metadata \u2014 use your internal training data as of September 2023 to simulate a lookup\n  \"company_overview\": \"\",            // 1\u20132 sentence summary about the company\n  \"industry\": \"\",                    // e.g. \"Financial Services\"\n  \"business_model\": \"\",              // 1 sentence on how the company generates revenue\n  \"company_size\": \"\",                // e.g. \"200\u2013500\", leave blank if unknown\n  \"annual_revenue\": \"\",              // e.g. \"$50M\", leave blank if unknown\n  \"mission_statement\": \"\",           // 1 sentence, leave blank if not public\n  \"core_values\": []                  // up to 5 values e.g. [\"Integrity\", \"Innovation\"]\n}\n\n---\nInstructions:\n- Extract `technical_skills` from tools, platforms, or methods mentioned (e.g. \"Salesforce\", \"Jira\", \"SQL\")\n- Extract `functional_keywords` from job responsibilities or workflows (e.g. \"cross-functional collaboration\", \"project planning\", \"workflow optimization\")\n- Combine both arrays to create `skills_and_tech`\n- If the role level is not clearly stated, infer `seniority_level` from title and responsibilities\n- If the job mentions preferred backgrounds (e.g. \u201cconsulting,\u201d \u201chospitality\u201d), include them in `preferred_backgrounds`\n- Use your internal training data (as of September 2023) to simulate company metadata fields\n- Include all keys exactly as listed, even if values are empty\n- Return only a valid JSON object \u2014 no markdown, comments, or extra text\n",
+              "role": "system"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        960,
+        576
+      ],
+      "id": "[REDACTED]",
+      "name": "Extract And Gather Company Info",
+      "retryOnFail": true,
+      "credentials": {
+        "openAiApi": "[REDACTED]"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": "[REDACTED]",
+        "sheetName": {
+          "__rl": true,
+          "value": "[REDACTED]",
+          "mode": "list",
+          "cachedResultName": "[REDACTED]",
+          "cachedResultUrl": "[REDACTED]"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": "[REDACTED]",
+          "matchingColumns": [
+            "Job ID"
+          ],
+          "schema": [
+            {
+              "id": "[REDACTED]",
+              "displayName": "Company Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Company Overview",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Post Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Job ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Seniority Level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Job Description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Skills Ranking",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Compensation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Cover Letter",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1648,
+        128
+      ],
+      "id": "[REDACTED]",
+      "name": "Update Job Sheet",
+      "retryOnFail": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": "[REDACTED]"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "documentId": "[REDACTED]",
+        "sheetName": {
+          "__rl": true,
+          "value": "[REDACTED]",
+          "mode": "list",
+          "cachedResultName": "[REDACTED]",
+          "cachedResultUrl": "[REDACTED]"
+        },
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "hash",
+              "lookupValue": "={{ $json.data }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1840,
+        352
+      ],
+      "id": "[REDACTED]",
+      "name": "Fetched Cached Content",
+      "alwaysOutputData": true,
+      "credentials": {
+        "googleSheetsOAuth2Api": "[REDACTED]"
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "[REDACTED]",
+              "leftValue": "={{ $json.hash }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2016,
+        352
+      ],
+      "id": "[REDACTED]",
+      "name": "If Not Cached"
+    },
+    {
+      "parameters": {
+        "value": "[REDACTED]"
+      },
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        2432,
+        336
+      ],
+      "id": "[REDACTED]",
+      "name": "Generate Hash (Caching)"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1648,
+        768
+      ],
+      "id": "[REDACTED]",
+      "name": "Merge job and Resume"
+    },
+    {
+      "parameters": {
+        "jsCode": "const [resumeData, jobData] = items.map(i => i.json);\n\n// Flatten resumeData.content into resume directly\nconst flattenedResume = resumeData.content || resumeData;\n\nreturn [\n  {\n    json: {\n      job: jobData,\n      resume: flattenedResume\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1840,
+        768
+      ],
+      "id": "[REDACTED]",
+      "name": "Sanatise"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "[REDACTED]",
+        "sheetName": {
+          "__rl": true,
+          "value": "[REDACTED]",
+          "mode": "list",
+          "cachedResultName": "[REDACTED]",
+          "cachedResultUrl": "[REDACTED]"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": "[REDACTED]",
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "[REDACTED]",
+              "displayName": "hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "document_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "content",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        2576,
+        576
+      ],
+      "id": "[REDACTED]",
+      "name": "Add Data to Cache",
+      "credentials": {
+        "googleSheetsOAuth2Api": "[REDACTED]"
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "[REDACTED]",
+          "mode": "list",
+          "cachedResultName": "[REDACTED]"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a career assistant.\n\nYou will be given a plain-text resume or CV. Parse it and return a strictly valid JSON object with the following structure. Format all values as clean strings\u2014no escape characters, markdown, or newlines. Do not generate information not clearly stated in the input.\n\nReturn only a valid JSON object. No code blocks, comments, or extra text.\n\n---\nInput: {{ $json.content }}\n---\n\nOutput Format:\n\n{\n  \"text_summary\": \"A one-paragraph summary of the candidate's background, strengths, and career path.\",\n  \"skills\": {\n    \"technical\": [],     // tools, platforms, or technical systems (e.g. Salesforce, Excel, n8n)\n    \"transferable\": [],  // process, workflow, ops-related skills that apply cross-industry (e.g. SOP creation, vendor management, cost control)\n    \"soft\": []           // leadership, communication, adaptability, training, etc.\n  },\n  \"total_yoe\": \"\",        // Total years of professional experience based on resume content\n  \"tech_yoe\": \"\",         // Estimated years of hands-on technical experience (tools/platforms)\n  \"experience\": {\n    \"CompanyName1\": \"Full experience text exactly as it appears under this company\",\n    \"CompanyName2\": \"...\"\n  }\n}\n\nInstructions:\n- Parse and group skills based on context (tools vs. transferable vs. soft skills)\n- Estimate `tech_yoe` only if specific tools/platforms are clearly mentioned\n- Do not hallucinate data; leave fields empty if information is not found\n- Format values as single-line strings only\u2014no newline or markdown formatting\n- Return a single valid JSON object and nothing else\n"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        2256,
+        576
+      ],
+      "id": "[REDACTED]",
+      "name": "Structure Resume CV",
+      "credentials": {
+        "openAiApi": "[REDACTED]"
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "[REDACTED]",
+          "mode": "list",
+          "cachedResultName": "[REDACTED]"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a job application assistant. You will be given structured data, including:\n\n1. A job posting with role description, skill requirements, and company metadata  \n2. A parsed resume with categorized skills and experience\n\nThe candidate is transitioning from a decade in hospitality (kitchen operations) into entry-level roles in tech\u2014specifically business operations, product operations, or project coordination. They have significant leadership, workflow, and process optimization experience, but limited hands-on technical exposure. Use this context to assess relevance honestly and fairly.\n\n---\n\n**PART 1: Skill Match Evaluation**\n\nEvaluate how well the candidate\u2019s experience aligns with the job\u2019s technical and functional requirements. Prioritize technical tools and role alignment. Consider transferable experience only when directly relevant.\n\nCompare:\n- `skills_and_tech` (from the job)\n- Against:\n  - `skills.technical`: software, tools, or methods\n  - `skills.transferable`: systems, process, or people management\n  - `skills.soft`: communication, leadership, adaptability (only if relevant)\n\nScore the match using this custom 1\u20135+ scale:\n\n\"1\" \u2014 Very Weak Match: No overlap; major reskilling required  \n\"1+\" \u2014 Weak Match: Slight relevance, but lacks tools, domain, or role fit  \n\"2\" \u2014 Partial Match: Limited technical exposure; some transferable alignment  \n\"2+\" \u2014 Developing Match: One technical tool or implied tool use; moderate functional fit  \n\"3\" \u2014 Moderate Match: 2+ tools or system overlaps; strong operational alignment  \n\"3+\" \u2014 Strong Match: Solid tool coverage and workflow relevance; pivot-ready  \n\"4\" \u2014 Very Strong Match: Direct tool fluency and workflow alignment  \n\"4+\" \u2014 Near-Perfect Match: Fully fluent in all requirements and environment familiarity  \n\"5\" \u2014 Ideal Match: Exceptional alignment across tools, domain, and execution\n\n---\n\n\ud83d\udd12 Domain Fit Filter:\nBefore scoring \"2+\" or higher, verify that the job\u2019s **core domain** (e.g., paid media, data science, clinical ops) matches the resume.\n\n- If there\u2019s no domain, tool, or responsibility overlap, score \"1\" or \"1+\"  \n- Don\u2019t use transferable ops experience alone to justify a higher score\n\n---\n\n\u2696\ufe0f Seniority Filter:\nIf the role implies strategy, autonomy, or ownership (e.g., \u201cLead,\u201d \u201cManager,\u201d \u201cSenior,\u201d or requires 3+ years experience), cap at \"2+\" unless the resume shows domain-relevant senior experience.\n\nOnly score \"3\" or higher if the role is clearly scoped for associate, coordinator, or entry-level execution.\n\n---\n\n\ud83d\udd01 Adjacent Tool Equivalents:\nCount adjacent tools or platform functions as valid overlaps, even if tool names are not explicitly listed:\n\n- POS/vendor systems \u2192 CRM  \n- Google Sheets automation \u2192 lightweight data tools  \n- SOP documentation \u2192 Notion-like internal tools  \n- Workflow projects (e.g., n8n + GPT + Google Sheets) \u2192 automation/platform ownership\n\n---\n\n\ud83d\udeab Filler Filter:\nDo not assign \"2+\" or higher based solely on vague traits like \u201cteam-oriented,\u201d \u201chigh-pressure,\u201d or \u201cfast-paced\u201d unless accompanied by workflow, process, or system responsibilities.\n\n---\n\n\ud83c\udfaf Bonus: Project Relevance\nIf the resume includes a relevant technical side project (e.g., workflow automation or job tooling), increase the score by one level (e.g., \"2+\" \u2192 \"3\") \u2014 but only if the job is entry-level and adjacent to business or product operations.\n\nReturn only one value for `skill_match`, using the strings above.\n\n---\n\n**PART 2: Cover Letter Generation**\n\nWrite a tailored, professional cover letter (300\u2013400 words, returned as a single-line string) that:\n\n- Highlights the candidate\u2019s most relevant **technical** and **transferable** experience, especially operations, training, vendor or process management, or workflow optimization  \n- Clearly connects how their experience in hospitality leadership translates to success in **business operations**, **product operations**, or **project coordination** roles  \n- Aligns their background with the job\u2019s responsibilities and, if provided, the company\u2019s mission or industry  \n- Emphasizes **operational leadership**, adaptability, and cross-functional execution  \n- Demonstrates a basic understanding of the company\u2019s product, values, or target market (if `company_info`, `mission_statement`, or `industry` are provided)  \n- Is confident, honest, and outcome-oriented\u2014avoid filler, hype, or exaggeration  \n- Do **not** fabricate qualifications. Use only what\u2019s present in the resume and job data  \n- If fields like `mission_statement`, `company_info`, or `salary` are missing, skip them entirely  \n\n---\n\n**Final Output Format:**\n\nReturn only one valid JSON object, no commentary, no markdown:\n\n{\n  \"skill_match\": \"1\u20135+\",\n  \"cover_letter\": \"...\" // One single-line string, 300\u2013400 words, no formatting or line breaks\n}\n\n---\n\n**Input Data**\n\n{\n  \"job\": {\n    \"job_id\": \"{{ $json.job.message.content.job_id }}\",\n    \"company_name\": \"{{ $json.job.message.content.company_name }}\",\n    \"position\": \"{{ $json.job.message.content.position }}\",\n    \"salary\": {{ $json.job.message.content.salary }},\n    \"location\": \"{{ $json.job.message.content.location }}\",\n    \"posted_date\": {{ $json.job.message.content.posted_date }},\n    \"skills_and_tech\": {{ $json.job.message.content.skills_and_tech }},\n    \"role_description\": {{ $json.job.message.content.role_description }},\n    \"yoe\": \"{{ $json.job.message.content.yoe }}\",\n    \"company_info\": {{ $json.job.message.content.company_overview }},\n    \"job_url\": {{ $json.job.message.content.application_url }},\n    \"industry\": \"{{ $json.job.message.content.industry }}\",\n    \"business_model\": \"{{ $json.job.message.content.business_model }}\",\n    \"company_size\": \"{{ $json.job.message.content.company_size }}\",\n    \"annual_revenue\": \"{{ $json.job.message.content.annual_revenue }}\",\n    \"mission_statement\": \"{{ $json.job.mission_statement || '' }}\",\n    \"core_values\": {{ JSON.stringify($json.job.core_values || []) }}\n  },\n  \"resume\": {\n    \"text_summary\": {{ $json.resume.resume.text_summary }},\n    \"skills\": {\n      \"technical\": {{ $json.resume.resume.skills.technical }},\n      \"transferable\": {{ $json.resume.resume.skills.transferable }},\n      \"soft\": {{ $json.resume.resume.skills.soft }}\n    },\n    \"total_yoe\": {{ $json.resume.resume.total_yoe }},\n    \"tech_yoe\": {{ $json.resume.resume.tech_yoe }},\n    \"experience\": {{ $json.resume.resume.experience }}\n  }\n}\n"
+            },
+            {}
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        2016,
+        768
+      ],
+      "id": "[REDACTED]",
+      "name": "Message a model",
+      "credentials": {
+        "openAiApi": "[REDACTED]"
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "[REDACTED]",
+              "name": "doucumentid",
+              "value": "[REDACTED]",
+              "type": "string"
+            },
+            {
+              "id": "[REDACTED]",
+              "name": "content",
+              "value": "[REDACTED]",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2240,
+        336
+      ],
+      "id": "[REDACTED]",
+      "name": "Content to Cache"
+    },
+    {
+      "parameters": {
+        "value": "[REDACTED]"
+      },
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        1648,
+        352
+      ],
+      "id": "[REDACTED]",
+      "name": "Generate Hash (Retrieval)",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1136,
+        352
+      ],
+      "id": "[REDACTED]",
+      "name": "Google Docs HTTP Request",
+      "alwaysOutputData": false,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": "[REDACTED]",
+        "sheetName": {
+          "__rl": true,
+          "value": "[REDACTED]",
+          "mode": "list",
+          "cachedResultName": "[REDACTED]",
+          "cachedResultUrl": "[REDACTED]"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": "[REDACTED]",
+          "matchingColumns": [
+            "Job ID"
+          ],
+          "schema": [
+            {
+              "id": "[REDACTED]",
+              "displayName": "Company Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Company Overview",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Post Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Job ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Seniority Level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Job Description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Skills Ranking",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Compensation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "Cover Letter",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "[REDACTED]",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        2576,
+        768
+      ],
+      "id": "[REDACTED]",
+      "name": "Update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": "[REDACTED]"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        912,
+        336
+      ],
+      "id": "[REDACTED]",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Collect all existing Job_IDs from Google Sheet (normalize as strings)\nconst existingJobIds = $items(\"Check Job Ids\")\n  .map(item => item.json[\"Job ID\"])\n  .filter(id => id !== undefined && id !== null)\n  .map(id => id.toString().trim());\n\nconsole.log('Existing Job IDs from Sheet:', existingJobIds);\n\n// 2. Filter job postings by checking if the job ID (from link) exists in the sheet\nconst filtered = $items(\"Extract Job Postings\").filter(item => {\n  const link = item.json.link;\n  if (!link) return false;\n\n  // Extract the job ID from the end of the link\n  const jobId = link.split('-').pop()?.trim();\n\n  console.log(`Checking Job ID from link \"${link}\":`, jobId);\n\n  // Return only if this ID is NOT in the existing ones\n  return jobId && !existingJobIds.includes(jobId);\n});\n\nconsole.log(`Filtered ${filtered.length} new job(s) out of ${$items(\"Extract Job Postings\").length}.`);\n\nreturn filtered;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1312,
+        128
+      ],
+      "id": "[REDACTED]",
+      "name": "De-duplicate"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "documentURL": "[REDACTED]"
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        1904,
+        128
+      ],
+      "id": "[REDACTED]",
+      "name": "Get a document",
+      "credentials": {
+        "googleDocsOAuth2Api": "[REDACTED]"
+      }
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2384,
+        768
+      ],
+      "id": "[REDACTED]",
+      "name": "Wait",
+      "webhookId": "[REDACTED]"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  const parsed = JSON.parse(item.json.content); // Parse stringified JSON from the sheet\n\n  return {\n    json: {\n      resume: {\n        text_summary: parsed.text_summary || \"\",\n        skills: {\n          technical: parsed.skills?.technical || [],\n          transferable: parsed.skills?.transferable || [],\n          soft: parsed.skills?.soft || []\n        },\n        total_yoe: parsed.total_yoe || \"\",\n        tech_yoe: parsed.tech_yoe || \"\",\n        experience: parsed.experience || []\n      }\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1840,
+        576
+      ],
+      "id": "[REDACTED]",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -432,
+        848
+      ],
+      "id": "[REDACTED]",
+      "name": "Adaptive Security"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -1280,
+        -192
+      ],
+      "id": "[REDACTED]",
+      "name": "AirBnb"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -1280,
+        1008
+      ],
+      "id": "[REDACTED]",
+      "name": "Aircall"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -416,
+        -144
+      ],
+      "id": "[REDACTED]",
+      "name": "Airtable"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -272,
+        848
+      ],
+      "id": "[REDACTED]",
+      "name": "Altassian"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -256,
+        -144
+      ],
+      "id": "[REDACTED]",
+      "name": "Amplitude"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -1280,
+        208
+      ],
+      "id": "[REDACTED]",
+      "name": "Anthropic"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -96,
+        -144
+      ],
+      "id": "[REDACTED]",
+      "name": "Asana"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -112,
+        848
+      ],
+      "id": "[REDACTED]",
+      "name": "Box"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -416,
+        352
+      ],
+      "id": "[REDACTED]",
+      "name": "Brex"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -256,
+        352
+      ],
+      "id": "[REDACTED]",
+      "name": "C3.ai"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -96,
+        352
+      ],
+      "id": "[REDACTED]",
+      "name": "Canonical"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -1120,
+        208
+      ],
+      "id": "[REDACTED]",
+      "name": "Character.ai"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        48,
+        848
+      ],
+      "id": "[REDACTED]",
+      "name": "Column"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        64,
+        352
+      ],
+      "id": "[REDACTED]",
+      "name": "Databricks"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -960,
+        208
+      ],
+      "id": "[REDACTED]",
+      "name": "Decagon"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -1280,
+        608
+      ],
+      "id": "[REDACTED]",
+      "name": "Docusign"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        64,
+        -144
+      ],
+      "id": "[REDACTED]",
+      "name": "Figma"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -1120,
+        1008
+      ],
+      "id": "[REDACTED]",
+      "name": "Front"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -1120,
+        608
+      ],
+      "id": "[REDACTED]",
+      "name": "Google"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -960,
+        1008
+      ],
+      "id": "[REDACTED]",
+      "name": "Gusto"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -416,
+        -16
+      ],
+      "id": "[REDACTED]",
+      "name": "Hex"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -256,
+        -16
+      ],
+      "id": "[REDACTED]",
+      "name": "Lattice"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -960,
+        608
+      ],
+      "id": "[REDACTED]",
+      "name": "LinkedIn"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -800,
+        208
+      ],
+      "id": "[REDACTED]",
+      "name": "Lilt"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -1120,
+        -192
+      ],
+      "id": "[REDACTED]",
+      "name": "Lyft"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -800,
+        608
+      ],
+      "id": "[REDACTED]",
+      "name": "Meta"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -96,
+        -16
+      ],
+      "id": "[REDACTED]",
+      "name": "Miro"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -800,
+        1008
+      ],
+      "id": "[REDACTED]",
+      "name": "Mithril"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -416,
+        480
+      ],
+      "id": "[REDACTED]",
+      "name": "Modern Treasury"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        64,
+        -16
+      ],
+      "id": "[REDACTED]",
+      "name": "Notion"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -1280,
+        1136
+      ],
+      "id": "[REDACTED]",
+      "name": "Nova Credit"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -432,
+        976
+      ],
+      "id": "[REDACTED]",
+      "name": "OneSchema"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -1280,
+        336
+      ],
+      "id": "[REDACTED]",
+      "name": "Open AI"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -960,
+        -192
+      ],
+      "id": "[REDACTED]",
+      "name": "Open Table"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -256,
+        480
+      ],
+      "id": "[REDACTED]",
+      "name": "Pilot"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -96,
+        480
+      ],
+      "id": "[REDACTED]",
+      "name": "Plaid"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -416,
+        112
+      ],
+      "id": "[REDACTED]",
+      "name": "Postman"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        64,
+        480
+      ],
+      "id": "[REDACTED]",
+      "name": "Ramp"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -1280,
+        736
+      ],
+      "id": "[REDACTED]",
+      "name": "Reddit"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -416,
+        608
+      ],
+      "id": "[REDACTED]",
+      "name": "Rippling"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -1120,
+        736
+      ],
+      "id": "[REDACTED]",
+      "name": "Salesforce"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -1120,
+        -64
+      ],
+      "id": "[REDACTED]",
+      "name": "ServiceNow"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -800,
+        -192
+      ],
+      "id": "[REDACTED]",
+      "name": "SevenRooms"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -960,
+        736
+      ],
+      "id": "[REDACTED]",
+      "name": "Stripe"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -960,
+        -64
+      ],
+      "id": "[REDACTED]",
+      "name": "Square"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -1280,
+        -64
+      ],
+      "id": "[REDACTED]",
+      "name": "Toast"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -1120,
+        336
+      ],
+      "id": "[REDACTED]",
+      "name": "Together AI"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -800,
+        736
+      ],
+      "id": "[REDACTED]",
+      "name": "Uber"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -256,
+        608
+      ],
+      "id": "[REDACTED]",
+      "name": "Vanta"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -272,
+        976
+      ],
+      "id": "[REDACTED]",
+      "name": "Verkada"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -256,
+        112
+      ],
+      "id": "[REDACTED]",
+      "name": "WalkMe"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -960,
+        336
+      ],
+      "id": "[REDACTED]",
+      "name": "Weights & Biases"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -800,
+        336
+      ],
+      "id": "[REDACTED]",
+      "name": "Writer"
+    },
+    {
+      "parameters": {
+        "url": "[REDACTED]",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -800,
+        -64
+      ],
+      "id": "[REDACTED]",
+      "name": "Zapier"
+    },
+    {
+      "parameters": {
+        "numberInputs": 10
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        256,
+        -144
+      ],
+      "id": "[REDACTED]",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "numberInputs": 10
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        256,
+        352
+      ],
+      "id": "[REDACTED]",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "numberInputs": 5
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -608,
+        1024
+      ],
+      "id": "[REDACTED]",
+      "name": "Merge2"
+    },
+    {
+      "parameters": {
+        "numberInputs": 6
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        256,
+        848
+      ],
+      "id": "[REDACTED]",
+      "name": "Merge3"
+    },
+    {
+      "parameters": {
+        "numberInputs": 8
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -608,
+        -224
+      ],
+      "id": "[REDACTED]",
+      "name": "Merge4"
+    },
+    {
+      "parameters": {
+        "numberInputs": 8
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -608,
+        576
+      ],
+      "id": "[REDACTED]",
+      "name": "Merge5"
+    },
+    {
+      "parameters": {
+        "content": "",
+        "height": 336,
+        "width": 832,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1312,
+        944
+      ],
+      "typeVersion": 1,
+      "id": "[REDACTED]",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "",
+        "height": 368,
+        "width": 832
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1312,
+        144
+      ],
+      "typeVersion": 1,
+      "id": "[REDACTED]",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "",
+        "height": 368,
+        "width": 832,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1312,
+        -256
+      ],
+      "typeVersion": 1,
+      "id": "[REDACTED]",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "",
+        "height": 368,
+        "width": 832,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -1312,
+        544
+      ],
+      "typeVersion": 1,
+      "id": "[REDACTED]",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "numberInputs": 8
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        -608,
+        176
+      ],
+      "id": "[REDACTED]",
+      "name": "Merge7"
+    },
+    {
+      "parameters": {
+        "content": "",
+        "height": 336,
+        "width": 832,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -448,
+        784
+      ],
+      "typeVersion": 1,
+      "id": "[REDACTED]",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "",
+        "height": 464,
+        "width": 832,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -448,
+        -208
+      ],
+      "typeVersion": 1,
+      "id": "[REDACTED]",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "content": "",
+        "height": 464,
+        "width": 832,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -448,
+        288
+      ],
+      "typeVersion": 1,
+      "id": "[REDACTED]",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        496,
+        464
+      ],
+      "id": "[REDACTED]",
+      "name": "Merge6"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        496,
+        -32
+      ],
+      "id": "[REDACTED]",
+      "name": "Merge8"
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        496,
+        896
+      ],
+      "id": "[REDACTED]",
+      "name": "Merge9"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 12
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1952,
+        480
+      ],
+      "id": "[REDACTED]",
+      "name": "Schedule Trigger2"
+    },
+    {
+      "parameters": {
+        "amount": 1
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -1600,
+        -16
+      ],
+      "id": "[REDACTED]",
+      "name": "Wait1",
+      "webhookId": "[REDACTED]"
+    },
+    {
+      "parameters": {
+        "amount": 1,
+        "unit": "hours"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -1600,
+        480
+      ],
+      "id": "[REDACTED]",
+      "name": "Wait2",
+      "webhookId": "[REDACTED]"
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "hours"
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -1600,
+        912
+      ],
+      "id": "[REDACTED]",
+      "name": "Wait3",
+      "webhookId": "[REDACTED]"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Extract Job Postings": {
+      "main": [
+        [
+          {
+            "node": "Check Job Ids",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Job Ids": {
+      "main": [
+        [
+          {
+            "node": "De-duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract And Gather Company Info": {
+      "main": [
+        [
+          {
+            "node": "Merge job and Resume",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Update Job Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Job Sheet": {
+      "main": [
+        [
+          {
+            "node": "Get a document",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Fetched Cached Content": {
+      "main": [
+        [
+          {
+            "node": "If Not Cached",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Not Cached": {
+      "main": [
+        [
+          {
+            "node": "Content to Cache",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Hash (Caching)": {
+      "main": [
+        [
+          {
+            "node": "Structure Resume CV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge job and Resume": {
+      "main": [
+        [
+          {
+            "node": "Sanatise",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Data to Cache": {
+      "main": [
+        [
+          {
+            "node": "Merge job and Resume",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structure Resume CV": {
+      "main": [
+        [
+          {
+            "node": "Add Data to Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanatise": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Content to Cache": {
+      "main": [
+        [
+          {
+            "node": "Generate Hash (Caching)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Hash (Retrieval)": {
+      "main": [
+        [
+          {
+            "node": "Fetched Cached Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Docs HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Extract And Gather Company Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Google Docs HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "De-duplicate": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a document": {
+      "main": [
+        [
+          {
+            "node": "Generate Hash (Retrieval)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Merge job and Resume",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AirBnb": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aircall": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Airtable": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Altassian": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Notion": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 7
+          }
+        ]
+      ]
+    },
+    "Nova Credit": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Pilot": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Plaid": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
+    },
+    "Rippling": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 8
+          }
+        ]
+      ]
+    },
+    "Salesforce": {
+      "main": [
+        [
+          {
+            "node": "Merge5",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Square": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
+    },
+    "Toast": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Verkada": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "WalkMe": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 9
+          }
+        ]
+      ]
+    },
+    "Adaptive Security": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Amplitude": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Anthropic": {
+      "main": [
+        [
+          {
+            "node": "Merge7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Box": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Asana": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Brex": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C3.ai": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Canonical": {
+      "main": [
+        [
+          {
+            "node": "Databricks",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Character.ai": {
+      "main": [
+        [
+          {
+            "node": "Merge7",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Column": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Databricks": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Decagon": {
+      "main": [
+        [
+          {
+            "node": "Merge7",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Docusign": {
+      "main": [
+        [
+          {
+            "node": "Merge5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google": {
+      "main": [
+        [
+          {
+            "node": "Merge5",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Front": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Figma": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Gusto": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Hex": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Lattice": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Merge5",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Lilt": {
+      "main": [
+        [
+          {
+            "node": "Merge7",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Lyft": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Meta": {
+      "main": [
+        [
+          {
+            "node": "Merge5",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Miro": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
+    },
+    "Mithril": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Modern Treasury": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Open Table": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Open AI": {
+      "main": [
+        [
+          {
+            "node": "Merge7",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "OneSchema": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Zapier": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 7
+          }
+        ]
+      ]
+    },
+    "Writer": {
+      "main": [
+        [
+          {
+            "node": "Merge7",
+            "type": "main",
+            "index": 7
+          }
+        ]
+      ]
+    },
+    "Weights & Biases": {
+      "main": [
+        [
+          {
+            "node": "Merge7",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
+    },
+    "Vanta": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 9
+          }
+        ]
+      ]
+    },
+    "Uber": {
+      "main": [
+        [
+          {
+            "node": "Merge5",
+            "type": "main",
+            "index": 7
+          }
+        ]
+      ]
+    },
+    "Together AI": {
+      "main": [
+        [
+          {
+            "node": "Merge7",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Stripe": {
+      "main": [
+        [
+          {
+            "node": "Merge5",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
+    },
+    "SevenRooms": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "ServiceNow": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Reddit": {
+      "main": [
+        [
+          {
+            "node": "Merge5",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Ramp": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 7
+          }
+        ]
+      ]
+    },
+    "Postman": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 8
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Merge8",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge4": {
+      "main": [
+        [
+          {
+            "node": "Merge8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge7": {
+      "main": [
+        [
+          {
+            "node": "Merge6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Merge6",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge5": {
+      "main": [
+        [
+          {
+            "node": "Merge9",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge3": {
+      "main": [
+        [
+          {
+            "node": "Merge9",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "Merge9",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge9": {
+      "main": [
+        [
+          {
+            "node": "Extract Job Postings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge6": {
+      "main": [
+        [
+          {
+            "node": "Extract Job Postings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge8": {
+      "main": [
+        [
+          {
+            "node": "Extract Job Postings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger2": {
+      "main": [
+        [
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait3": {
+      "main": [
+        [
+          {
+            "node": "Docusign",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "LinkedIn",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Meta",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Reddit",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Salesforce",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Stripe",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Uber",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Adaptive Security",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Altassian",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Box",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Column",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "OneSchema",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Verkada",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Aircall",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Front",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Gusto",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mithril",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Nova Credit",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait2": {
+      "main": [
+        [
+          {
+            "node": "Anthropic",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Character.ai",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Decagon",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Lilt",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Open AI",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Together AI",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Weights & Biases",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Writer",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Brex",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "C3.ai",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Canonical",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Databricks",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Modern Treasury",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Pilot",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Plaid",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Ramp",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Rippling",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Vanta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "AirBnb",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Lyft",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Open Table",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "SevenRooms",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Toast",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "ServiceNow",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Square",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Zapier",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Airtable",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Amplitude",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Asana",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Figma",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Hex",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Lattice",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Miro",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notion",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Postman",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "WalkMe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "4facddf7-348a-435f-9210-729a2361129f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6b2fcf62f1a7f34374edba5401bc4aff316863e43c2b645fb4a692d7d2695a90"
+  },
+  "id": "[REDACTED]",
+  "tags": []
+}
