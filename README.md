@@ -85,6 +85,7 @@ Here’s the live view from my n8n instance, showing the full node structure:
 ---
 
 ## 🚀How to Run Locally
+> ⚠️ **This repo contains multiple versions of the workflow.** For the most recent and recommended setup, use n8n Job_Search_Automation_v2.json. Version 1 is included for historical reference.
 1. Clone this repo.  
 2. Import `job_automation_sanitized.json` into n8n.  
 3. Add environment variables:  
