@@ -53,7 +53,7 @@ A high-level, color-coded breakdown of the full automation flow:
 ### 🔹 Real Workflow from n8n  
 Here’s the live view from my n8n instance, showing the full node structure:
 
-![n8n Screenshot](Media/workflow-light.png)
+![n8n Screenshot](Media/Workflow-light-v2.png)
 
 ---
 
