@@ -1,17 +1,18 @@
 # Automated Job Search Workflow (n8n + OpenAI + Google Sheets)
-
-**Version 2.0 — Rebuilt for Accuracy, Efficiency, and Skill Alignment**
+**Version 3 — Rebuilt for Precision Scoring and True Job-Fit Assessment**
 
 <picture>
   <img src="https://github.com/user-attachments/assets/61f9663d-570c-4459-b5dd-089c562e148b" width="20" height="20" alt="Notion logo" />
 </picture>
-<strong>Notion Walkthrough</strong>
-Explore the full breakdown of this project across V1 → V3 with diagrams, screenshots, notes, metrics, and lessons learned:
+<strong>Notion Walkthrough:</strong>
+Explore the full breakdown of this project across v1 → v3 with diagrams, screenshots, notes, metrics, and lessons learned:
 
-👉 [View the full project in Notion](https://working-knuckle-420.notion.site/n8n-Job-Search-Assistant-248b1441915d8047a5a6d67c81a91ddc)
+👉 [View my full project in Notion](https://working-knuckle-420.notion.site/n8n-Job-Search-Assistant-248b1441915d8047a5a6d67c81a91ddc)
 
 ## Overview
-This workflow automates the sourcing, filtering, ranking, and enrichment of job postings in **San Francisco’s tech sector**, specifically targeting **business operations**, **product operations**, **project coordination**, and **revenue operations** roles aligned with my skill set.
+This workflow automates the sourcing, filtering, enrichment, and ranking of job postings in San Francisco’s tech sector. It specifically targets business operations, product operations, and project coordination roles that align with my transferable experience.
+
+Originally built to support my transition from high-performance kitchen operations into tech, the system now includes a revamped ranking model. Instead of just skill overlap, it focuses on real-world hiring likelihood. It prioritizes roles that reflect both my strengths and viable entry points—helping surface fewer, higher-value opportunities and reduce time spent on low-fit applications
 > ⚠️ **This is a redacted version.** Personal document links, API credentials, and private RSS feeds have been removed for security.
 
 ### 🔧 The system:
@@ -20,12 +21,21 @@ This workflow automates the sourcing, filtering, ranking, and enrichment of job 
 3. **Deduplicates** jobs already logged in Google Sheets.  
 4. **Enriches** job data with company metadata, keywords, and technical/functional skill extraction using GPT.  
 5. **Parses** my resume into structured JSON for skill-matching.  
-6. **Scores** job fit on a custom 1–5+ scale designed for my industry pivot.  
+6. **Scores** job fit on a custom 1–5 scale designed for my industry pivot.  
 7. **Generates** tailored, ATS-friendly cover letters.  
 8. **Updates** a Google Sheet with clean, consistent job records.  
 
 ---
+## 🐣 Project Evolution
 
+| Version  | Focus                           | Key Improvements |
+|----------|----------------------------------|------------------|
+| **🥚 v1** | Initial Automation               | - Basic RSS feed ingestion  <br> - Simple filtering and skill matching <br> - Resume parsed via HTTP  <br> - Basic Google Sheets logging |
+| **🐥 v2** | Enhanced Data & Reliability      | - Switched to Google Docs API for cleaner resume data <br> - Improved job metadata extraction <br> - Expanded filtering logic to reduce noise <br> - Upgraded to 1–5+ ranking system |
+| **🐓 v3** | Precision Scoring (Current)      | - Fully redesigned ranking logic <br> - Focused on *likelihood of success* over raw skill match <br> - Simplified back to 1–5 scale <br> - Filtered out high-skill but low-fit roles |
+
+
+---
 ## 🧰 Tech Stack
 - **n8n** — workflow automation  
 - **RSS Feeds** — company job listings  
@@ -43,7 +53,7 @@ This workflow automates the sourcing, filtering, ranking, and enrichment of job 
 → [Deduplication by Job ID]
 → [Collect Job Data + Metadata]
 → [Resume Retrieval via Google Docs API]
-→ [Skill Match Scoring]
+→ [Precision Fit Scoring]
 → [Cover Letter Generation]
 → [Google Sheets Update]
 
@@ -65,37 +75,19 @@ Here’s the live view from my n8n instance, showing the full node structure:
 
 ---
 
-## 🛠️ Key Improvements in v2.0
-
-### 1. Improved Job Data Collection
-- Expanded extracted fields to include role descriptions, functional keywords, technical skills, and richer company metadata.
-
-### 2. Updated Ranking System for Skill Alignment
-- Rebuilt the scoring logic to weight technical overlaps and domain fit more heavily, ensuring high scores only go to truly relevant roles.
-
-### 3. Switched Resume Retrieval to Google Docs API
-- Direct API retrieval for cleaner parsing, replacing HTML pulls from the public link.
-
-### 4. Cache Formatting Validation
-- Code node added to normalize cached data before reprocessing, preventing workflow errors.
-
-### 5. Enhanced Initial Filtering
-- Rebuilt filters expanded to exclude senior, management, and irrelevant roles to reduce token usage and keep Sheets clean.
-
----
-
 ## 📚 Lessons Learned
 - Stronger **front-end filtering** saves time, tokens, and cleanup.  
 - Direct API connections (Google Docs) are more reliable than scraping.  
 - A clean caching system improves stability and efficiency.  
-- Ranking logic must be **customized to your pivot**.  
+- Ranking logic must be **customized to your pivot**.
+- **Career pivot scoring** requires different logic than traditional skill matching.
 
 ---
 
-## 🚀How to Run Locally
-> ⚠️ **This repo contains multiple versions of the workflow.** For the most recent and recommended setup, use n8n Job_Search_Automation_v2.json. Version 1 is included for historical reference.
+## 🚀 How to Run Locally
+> ⚠️ **This repo contains multiple versions of the workflow.** For the most recent and recommended setup, use n8n Job_Search_Automation_v3.json. Version 1, and 2 are included for historical reference.
 1. Clone this repo.  
-2. Import `job_automation_sanitized.json` into n8n.  
+2. Import `Job_Search_Automation_v3.json` into n8n.  
 3. Add environment variables:  
    - `OPENAI_API_KEY`  
    - Google API credentials for **Sheets** and **Docs**  
@@ -108,7 +100,7 @@ Here’s the live view from my n8n instance, showing the full node structure:
 
 | Title                         | Company Name | Location           | Score | Link | Cover Letter            |
 |--------------------------------|--------------|--------------------|-------|------|-------------------------|
-| Product Operations Coordinator | Airtable     | San Francisco, CA  | 3+    | View | Generated, ATS-ready    |
+| Product Operations Coordinator | Airtable     | San Francisco, CA  | 3    | View | Generated, ATS-ready    |
 
 ---
 
