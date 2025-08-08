@@ -72,7 +72,7 @@ Here’s the live view from my n8n instance, showing the full node structure:
 - Code node added to normalize cached data before reprocessing, preventing workflow errors.
 
 ### 5. Enhanced Initial Filtering
-- Regex filters expanded to exclude senior, management, and irrelevant roles to reduce token usage and keep Sheets clean.
+- Rebuilt filters expanded to exclude senior, management, and irrelevant roles to reduce token usage and keep Sheets clean.
 
 ---
 
