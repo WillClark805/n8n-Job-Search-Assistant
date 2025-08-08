@@ -2,6 +2,14 @@
 
 **Version 2.0 — Rebuilt for Accuracy, Efficiency, and Skill Alignment**
 
+<picture>
+  <img src="https://github.com/user-attachments/assets/61f9663d-570c-4459-b5dd-089c562e148b" width="20" height="20" alt="Notion logo" />
+</picture>
+<strong>Notion Walkthrough</strong>
+Explore the full breakdown of this project across V1 → V3 with diagrams, screenshots, notes, metrics, and lessons learned:
+
+👉 [View the full project in Notion](https://working-knuckle-420.notion.site/n8n-Job-Search-Assistant-248b1441915d8047a5a6d67c81a91ddc)
+
 ## Overview
 This workflow automates the sourcing, filtering, ranking, and enrichment of job postings in **San Francisco’s tech sector**, specifically targeting **business operations**, **product operations**, **project coordination**, and **revenue operations** roles aligned with my skill set.
 > ⚠️ **This is a redacted version.** Personal document links, API credentials, and private RSS feeds have been removed for security.
