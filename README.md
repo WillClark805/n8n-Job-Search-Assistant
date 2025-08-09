@@ -12,17 +12,17 @@ Explore the full breakdown of this project across v1 → v3 with diagrams, scree
 ## Overview
 This workflow automates the sourcing, filtering, enrichment, and ranking of job postings in San Francisco’s tech sector. It specifically targets business operations, product operations, and project coordination roles that align with my transferable experience.
 
-Originally built to support my transition from high-performance kitchen operations into tech, the system now includes a revamped ranking model. Instead of just skill overlap, it focuses on real-world hiring likelihood. It prioritizes roles that reflect both my strengths and viable entry points—helping surface fewer, higher-value opportunities and reduce time spent on low-fit applications
+Originally built to support my transition from high performance kitchen operations into tech, the system now includes a revamped ranking model. Instead of just skill overlap, it focuses on real world hiring likelihood. It prioritizes roles that reflect both my strengths and viable entry points helping surface fewer, higher value opportunities and reduce time spent on low fit applications
 > ⚠️ **This is a redacted version.** Personal document links, API credentials, and private RSS feeds have been removed for security.
 
 ### 🔧 The system:
 1. **Collects** postings from targeted RSS feeds for selected tech companies.  
-2. **Filters** irrelevant and senior-level roles before processing.  
+2. **Filters** irrelevant and senior level roles before processing.  
 3. **Deduplicates** jobs already logged in Google Sheets.  
 4. **Enriches** job data with company metadata, keywords, and technical/functional skill extraction using GPT.  
-5. **Parses** my resume into structured JSON for skill-matching.  
+5. **Parses** my resume into structured JSON for matching.  
 6. **Scores** job fit on a custom 1–5 scale designed for my industry pivot.  
-7. **Generates** tailored, ATS-friendly base cover letter.  
+7. **Generates** tailored, ATS riendly base cover letter.  
 8. **Updates** a Google Sheet with clean, consistent job records.
 ## 🛠️ Technical Improvements
 
@@ -57,14 +57,13 @@ Originally built to support my transition from high-performance kitchen operatio
 ## 📐 Workflow Architecture
 
 RSS Feeds (Rate Limited)  
-&nbsp;→ Sequential Processing Pipeline  
-&nbsp;&nbsp;→ Initial Role & Seniority Filtering  
-&nbsp;&nbsp;→ Deduplication by Job ID  
-&nbsp;&nbsp;→ One-by-One Job Processing:  
-&nbsp;&nbsp;&nbsp;&nbsp;→ Resume Retrieval via Google Docs API  
-&nbsp;&nbsp;&nbsp;&nbsp;→ Precision Fit Scoring  
-&nbsp;&nbsp;&nbsp;&nbsp;→ Cover Letter Generation  
-&nbsp;&nbsp;→ Google Sheets Update  
+→ Initial Role & Seniority Filtering  
+→ Deduplication by Job ID  
+→ Sequential Job Processing:  
+&nbsp;&nbsp;&nbsp;→ Resume Retrieval via Google Docs API  
+&nbsp;&nbsp;&nbsp;→ Precision Fit Scoring  
+&nbsp;&nbsp;&nbsp;→ Cover Letter Generation  
+→ Google Sheets Update  
 
 ---
 
