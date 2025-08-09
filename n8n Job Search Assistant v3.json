@@ -1,0 +1,3211 @@
+{
+  "name": "Job automation",
+  "nodes": [
+    {
+      "parameters": {
+        "jsCode": "// 1) Senior-level keywords to exclude\nconst excludeKeywords = [\n  \"senior\",\n  \"sr.\",\n  \"principal\",\n  \"director\",\n  \"head\",\n  \"vp\",\n  \"vice president\",\n  \"chief\",\n  \"staff\",\n  \"scientist\",\n  \"architect\",\n  \"engineer\",\n  \"developer\",\n  \"phd\",\n  \"grad\",\n  \"postdoc\",\n  \"legal\"\n].map(k => new RegExp(`\\\\b${k}`, \"i\"));\n\nconst now = new Date();\nconst twoMonthsAgo = new Date(now);\ntwoMonthsAgo.setMonth(now.getMonth() - 2);\nconst currentYear = now.getFullYear();\n\nreturn items.filter(item => {\n  const title = (item.json.title || \"\").trim();\n\n  // 1) Drop anything with a senior-level hint\n  if (excludeKeywords.some(regex => regex.test(title))) {\n    return false;\n  }\n\n  // 2) Parse publication date\n  const pubDate = item.json.pubDate ? new Date(item.json.pubDate) : null;\n  if (!(pubDate instanceof Date) || isNaN(pubDate)) {\n    return false;\n  }\n\n  // 3) Enforce \"this year\" AND \"within two months\"\n  return pubDate.getFullYear() === currentYear\n      && pubDate >= twoMonthsAgo;\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        112
+      ],
+      "id": "/* redacted-id */",
+      "name": "Extract Job Postings",
+      "executeOnce": false
+    },
+    {
+      "parameters": {
+        "documentId": "/* redacted */",
+        "sheetName": "/* redacted */",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        896,
+        112
+      ],
+      "id": "/* redacted-id */",
+      "name": "Check Job Ids",
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "credentials": "/* redacted */"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "/* redacted */"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a job application assistant.\n\nYou will be given a job posting. Extract and return a single JSON object with the following structure. Use snake_case for all keys. Keep values concise and token-efficient. All keys in the structure must be present in the final output, even if some values are not known or mentioned.\n\n---\nINPUT:\n{{ $json.data }}\n\n---\nExtract and return this structure:\n\n{\n  \"job_id\": \"\",                       // from job URL\n  \"company_name\": \"\",                // from title or post\n  \"position\": \"\",                    // exact job title from the post\n  \"normalized_position\": \"\",         // general role category, e.g. \"Project Coordinator\"\n  \"seniority_level\": \"\",             // \"Entry\", \"Associate\", \"Mid\", \"Senior\", or \"Not specified\"\n  \"salary\": \"\",                      // if mentioned, else \"\"\n  \"location\": \"\",                    // city + country or region\n  \"posted_date\": \"\",                 // ISO format YYYY-MM-DD\n  \"technical_skills\": [],            // tools, platforms, or methods e.g. [\"Salesforce\", \"Excel\", \"SQL\"]\n  \"functional_keywords\": [],         // domain or role-specific terms e.g. [\"project coordination\", \"process optimization\"]\n  \"skills_and_tech\": [],             // union of technical_skills + functional_keywords\n  \"role_description\": \"\",            // 1\u20133 sentence summary of the job\u2019s duties and impact\n  \"yoe\": \"\",                         // required or implied years of experience for the role\n  \"company_info\": \"\",                // any descriptive paragraph from the job post about the company\n  \"job_url\": \"\",                     // public job post link\n  \"application_url\": \"\",             // same as job_url unless specified separately\n\n  // Company metadata \u2014 use your internal training data as of September 2023 to simulate a lookup\n  \"company_overview\": \"\",            // 1\u20132 sentence summary about the company\n  \"industry\": \"\",                    // e.g. \"Financial Services\"\n  \"business_model\": \"\",              // 1 sentence on how the company generates revenue\n  \"company_size\": \"\",                // e.g. \"200\u2013500\", leave blank if unknown\n  \"annual_revenue\": \"\",              // e.g. \"$50M\", leave blank if unknown\n  \"mission_statement\": \"\",           // 1 sentence, leave blank if not public\n  \"core_values\": []                  // up to 5 values e.g. [\"Integrity\", \"Innovation\"]\n}\n\n---\nInstructions:\n- Extract `technical_skills` from tools, platforms, or methods mentioned (e.g. \"Salesforce\", \"Jira\", \"SQL\")\n- Extract `functional_keywords` from job responsibilities or workflows (e.g. \"cross-functional collaboration\", \"project planning\", \"workflow optimization\")\n- Combine both arrays to create `skills_and_tech`\n- If the role level is not clearly stated, infer `seniority_level` from title and responsibilities\n- If the job mentions preferred backgrounds (e.g. \u201cconsulting,\u201d \u201chospitality\u201d), include them in `preferred_backgrounds`\n- Use your internal training data (as of September 2023) to simulate company metadata fields\n- Include all keys exactly as listed, even if values are empty\n- Return only a valid JSON object \u2014 no markdown, comments, or extra text\n",
+              "role": "system"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        720,
+        816
+      ],
+      "id": "/* redacted-id */",
+      "name": "Extract And Gather Company Info",
+      "retryOnFail": true,
+      "credentials": "/* redacted */",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": "/* redacted */",
+        "sheetName": "/* redacted */",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Title": "={{ $json.message.content.position }}",
+            "Company Name": "={{ $json.message.content.company_name }}",
+            "Link": "={{ $json.message.content.application_url }}",
+            "Location": "={{ $json.message.content.location }}",
+            "Company Overview": "={{ $json.message.content.company_overview }}",
+            "Job Description": "={{ $json.message.content.role_description }}",
+            "Compensation": "={{ $json.message.content.salary }}",
+            "Job ID": "={{ $json.message.content.job_id }}",
+            "Post Date": "={{ $json.message.content.posted_date }}",
+            "Industry": "={{ $json.message.content.industry }}",
+            "Seniority Level": "={{ $json.message.content.seniority_level }}"
+          },
+          "matchingColumns": [
+            "Job ID"
+          ],
+          "schema": [
+            {
+              "id": "Company Name",
+              "displayName": "Company Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Company Overview",
+              "displayName": "Company Overview",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Industry",
+              "displayName": "Industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Link",
+              "displayName": "Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Applied Status",
+              "displayName": "Applied Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Post Date",
+              "displayName": "Post Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Job ID",
+              "displayName": "Job ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Title",
+              "displayName": "Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Job Description",
+              "displayName": "Job Description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Seniority Level",
+              "displayName": "Seniority Level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Apply Score",
+              "displayName": "Apply Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Compensation",
+              "displayName": "Compensation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Location",
+              "displayName": "Location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Cover Letter",
+              "displayName": "Cover Letter",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1504,
+        112
+      ],
+      "id": "/* redacted-id */",
+      "name": "Update Job Sheet",
+      "retryOnFail": true,
+      "credentials": "/* redacted */",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "documentId": "/* redacted */",
+        "sheetName": "/* redacted */",
+        "filtersUI": {
+          "values": [
+            {
+              "lookupColumn": "hash",
+              "lookupValue": "={{ $json.data }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        1696,
+        352
+      ],
+      "id": "/* redacted-id */",
+      "name": "Fetched Cached Content",
+      "alwaysOutputData": true,
+      "credentials": "/* redacted */"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "/* redacted-id */",
+              "leftValue": "={{ $json.hash }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notExists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1872,
+        352
+      ],
+      "id": "/* redacted-id */",
+      "name": "If Not Cached"
+    },
+    {
+      "parameters": {
+        "value": "={{ $json.content }}"
+      },
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        2288,
+        336
+      ],
+      "id": "/* redacted-id */",
+      "name": "Generate Hash (Caching)"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        1504,
+        800
+      ],
+      "id": "/* redacted-id */",
+      "name": "Merge job and Resume"
+    },
+    {
+      "parameters": {
+        "jsCode": "const [resumeData, jobData] = items.map(i => i.json);\n\n// Flatten resumeData.content into resume directly\nconst flattenedResume = resumeData.content || resumeData;\n\nreturn [\n  {\n    json: {\n      job: jobData,\n      resume: flattenedResume\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1696,
+        800
+      ],
+      "id": "/* redacted-id */",
+      "name": "Sanatise"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": "/* redacted */",
+        "sheetName": "/* redacted */",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "hash": "={{ $('Generate Hash (Caching)').item.json.data }}",
+            "document_id": "={{ $('Generate Hash (Caching)').item.json.doucumentid }}",
+            "content": "={{ $json.message.content }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "hash",
+              "displayName": "hash",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "document_id",
+              "displayName": "document_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "content",
+              "displayName": "content",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        2432,
+        576
+      ],
+      "id": "/* redacted-id */",
+      "name": "Add Data to Cache",
+      "credentials": "/* redacted */"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "/* redacted */"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a career assistant.\n\nYou will be given a plain-text resume or CV. Parse it and return a strictly valid JSON object with the following structure. Format all values as clean strings\u2014no escape characters, markdown, or newlines. Do not generate information not clearly stated in the input.\n\nReturn only a valid JSON object. No code blocks, comments, or extra text.\n\n---\nInput: {{ $json.content }}\n---\n\nOutput Format:\n\n{\n  \"text_summary\": \"A one-paragraph summary of the candidate's background, strengths, and career path.\",\n  \"skills\": {\n    \"technical\": [],     // tools, platforms, or technical systems (e.g. Salesforce, Excel, n8n)\n    \"transferable\": [],  // process, workflow, ops-related skills that apply cross-industry (e.g. SOP creation, vendor management, cost control)\n    \"soft\": []           // leadership, communication, adaptability, training, etc.\n  },\n  \"total_yoe\": \"\",        // Total years of professional experience based on resume content\n  \"tech_yoe\": \"\",         // Estimated years of hands-on technical experience (tools/platforms)\n  \"experience\": {\n    \"CompanyName1\": \"Full experience text exactly as it appears under this company\",\n    \"CompanyName2\": \"...\"\n  }\n}\n\nInstructions:\n- Parse and group skills based on context (tools vs. transferable vs. soft skills)\n- Estimate `tech_yoe` only if specific tools/platforms are clearly mentioned\n- Do not hallucinate data; leave fields empty if information is not found\n- Format values as single-line strings only\u2014no newline or markdown formatting\n- Return a single valid JSON object and nothing else\n"
+            }
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        2112,
+        576
+      ],
+      "id": "/* redacted-id */",
+      "name": "Structure Resume CV",
+      "credentials": "/* redacted */"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "gpt-4o",
+          "mode": "list",
+          "cachedResultName": "/* redacted */"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are a job application assistant. You will be given structured data, including:\n\n1. A job posting with role description, skill requirements, and company metadata  \n2. A parsed resume with categorized skills and experience\n\nThe candidate is transitioning from a decade in hospitality (kitchen operations) into entry-level roles in tech\u2014specifically business operations, product operations, or project coordination. They have significant leadership, workflow, and process optimization experience, but limited hands-on technical exposure. Use this context to assess relevance honestly and fairly.\n\n---\n\n**PART 1: Skill Match Evaluation**\n\nEvaluate how well the candidate's experience aligns with the job's technical and functional requirements. Prioritize technical tools and role alignment. Consider transferable experience only when directly relevant.\n\nCompare:\n- `skills_and_tech` (from the job)\n- Against:\n - `skills.technical`: software, tools, or methods\n - `skills.transferable`: systems, process, or people management\n - `skills.soft`: communication, leadership, adaptability (only if relevant)\n\nRevised Scoring Scale (Application Priority):\n\"5\" \u2014 Must Apply: Perfect transition opportunity; high success probability\n\nEntry-level operations/coordination role (0-2 YOE)\n2+ adjacent tools/systems overlap\nStrong operational/process focus in job description\nCompany values transferable experience OR explicitly welcomes career changers\n\n\"4\" \u2014 Strong Apply: Very good opportunity; solid success chance\n\nEntry-level role with 1+ adjacent tool overlap\nClear operational responsibilities that match your background\nReasonable technical learning curve\nGrowth-oriented company/role\n\n\"3\" \u2014 Consider Apply: Viable but competitive; apply if genuinely interested\n\nEntry-level role but limited tool overlap\nSome operational alignment but heavier technical focus\nMay require significant upskilling but achievable\n\n\"2\" \u2014 Probably Skip: Low success probability; apply only if desperate\n\nMid-level role (3+ YOE requirement)\nHeavy technical focus with minimal operational component\nTools/domain completely foreign\n\n\"1\" \u2014 Definitely Skip: Waste of time; focus elsewhere\n\nSenior roles (5+ YOE)\nHighly specialized technical roles\nNo transferable skill relevance\nDomain expertise required (finance, healthcare, etc.)\n\n\nKey Evaluation Criteria (Weighted):\n1. Experience Level Requirement (40% weight)\n\n0-1 YOE required: +2 points\n2 YOE required: +1 point\n3-4 YOE required: -1 point\n5+ YOE required: Auto-score \"1\"\n\n2. Role Type Alignment (30% weight)\n\nBusiness/Product Operations, Coordinator: +2 points\nProject Management, Process roles: +1 point\nTechnical IC roles: -1 point\nSpecialized domains (finance, clinical): -2 points\n\n3. Technical Barrier (20% weight)\n\n0-1 unfamiliar tools: +1 point\n2-3 unfamiliar tools: 0 points\n4+ unfamiliar tools: -1 point\nCoding required: -2 points\n\n4. Company Signals (10% weight)\n\nMentions \"transferable skills\" or \"career growth\": +1 point\nStartup/scale-up environment: +1 point\n\"Must have X years in domain\": -1 point\n\n## Score Calculation:\nAdd all weighted points and map to final score:\n- 4+ points: Score \"5\" \n- 2-3 points: Score \"4\"\n- 0-1 points: Score \"3\" \n- -1 to -2 points: Score \"2\"\n- -3 or lower: Score \"1\"\n\nApplication Strategy by Score:\n5's: Apply same day, craft custom cover letter\n4's: Apply within 48 hours, good cover letter\n3's: Apply if you have time, standard cover letter\n2's: Apply only if you need volume/practice\n1's: Skip entirely\n---\n\n\ud83d\udd01 Adjacent Tool Equivalents:\nCount adjacent tools or platform functions as valid overlaps, even if tool names are not explicitly listed:\n\n- POS/vendor systems \u2192 CRM  \n- Google Sheets automation \u2192 lightweight data tools  \n- SOP documentation \u2192 Notion-like internal tools  \n- Workflow projects (e.g., n8n + GPT + Google Sheets) \u2192 automation/platform ownership\n\n---\n\n\ud83d\udeab Filler Filter:\nDo not assign \"4\" or higher based solely on vague traits like \"team-oriented,\" \"high-pressure,\" or \"fast-paced\" unless accompanied by workflow, process, or system responsibilities.\n\n---\n\n\ud83c\udfaf Bonus: Project Relevance\nIf the resume includes a relevant technical side project (e.g., workflow automation or job tooling), increase the score by one level (e.g., \"2+\" \u2192 \"3\") \u2014 but only if the job is entry-level and adjacent to business or product operations.\n\nReturn only one value for `skill_match`, using the strings above.\n\n---\n\n**PART 2: Cover Letter Generation**\n\nWrite a tailored, professional cover letter (300\u2013400 words, returned as a single-line string) that:\n\n- Highlights the candidate's most relevant **technical** and **transferable** experience, especially operations, training, vendor or process management, or workflow optimization  \n- Clearly connects how their experience in hospitality leadership translates to success in **business operations**, **product operations**, or **project coordination** roles  \n- Aligns their background with the job's responsibilities and, if provided, the company's mission or industry  \n- Emphasizes **operational leadership**, adaptability, and cross-functional execution  \n- Demonstrates a basic understanding of the company's product, values, or target market (if `company_info`, `mission_statement`, or `industry` are provided)  \n- Is confident, honest, and outcome-oriented\u2014avoid filler, hype, or exaggeration  \n- Do **not** fabricate qualifications. Use only what's present in the resume and job data  \n- If fields like `mission_statement`, `company_info`, or `salary` are missing, skip them entirely  \n\n---\n\n**Final Output Format:**\n\nReturn only one valid JSON object, no commentary, no markdown:\n\n{\n  \"skill_match\": \"1\u20135+\",\n  \"cover_letter\": \"...\" // One single-line string, 300\u2013400 words, no formatting or line breaks\n}\n\n---\n\n**Input Data**\n\n{\n  \"job\": {\n    \"job_id\": \"{{ $json.job.message.content.job_id }}\",\n    \"company_name\": \"{{ $json.job.message.content.company_name }}\",\n    \"position\": \"{{ $json.job.message.content.position }}\",\n    \"salary\": {{ $json.job.message.content.salary }},\n    \"location\": \"{{ $json.job.message.content.location }}\",\n    \"posted_date\": {{ $json.job.message.content.posted_date }},\n    \"skills_and_tech\": {{ $json.job.message.content.skills_and_tech }},\n    \"role_description\": {{ $json.job.message.content.role_description }},\n    \"yoe\": \"{{ $json.job.message.content.yoe }}\",\n    \"company_info\": {{ $json.job.message.content.company_overview }},\n    \"job_url\": {{ $json.job.message.content.application_url }},\n    \"industry\": \"{{ $json.job.message.content.industry }}\",\n    \"business_model\": \"{{ $json.job.message.content.business_model }}\",\n    \"company_size\": \"{{ $json.job.message.content.company_size }}\",\n    \"annual_revenue\": \"{{ $json.job.message.content.annual_revenue }}\",\n    \"mission_statement\": \"{{ $json.job.mission_statement || '' }}\",\n    \"core_values\": {{ JSON.stringify($json.job.core_values || []) }}\n  },\n  \"resume\": {\n    \"text_summary\": {{ $json.resume.resume.text_summary }},\n    \"skills\": {\n      \"technical\": {{ $json.resume.resume.skills.technical }},\n      \"transferable\": {{ $json.resume.resume.skills.transferable }},\n      \"soft\": {{ $json.resume.resume.skills.soft }}\n    },\n    \"total_yoe\": {{ $json.resume.resume.total_yoe }},\n    \"tech_yoe\": {{ $json.resume.resume.tech_yoe }},\n    \"experience\": {{ $json.resume.resume.experience }}\n  }\n}"
+            },
+            {}
+          ]
+        },
+        "jsonOutput": true,
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.openAi",
+      "typeVersion": 1.8,
+      "position": [
+        1872,
+        800
+      ],
+      "id": "/* redacted-id */",
+      "name": "Message a model",
+      "credentials": "/* redacted */"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "/* redacted-id */",
+              "name": "doucumentid",
+              "value": "={{ $('Generate Hash (Retrieval)').item.json.documentId }}",
+              "type": "string"
+            },
+            {
+              "id": "/* redacted-id */",
+              "name": "content",
+              "value": "={{ $('Generate Hash (Retrieval)').item.json.content }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2096,
+        336
+      ],
+      "id": "/* redacted-id */",
+      "name": "Content to Cache"
+    },
+    {
+      "parameters": {
+        "value": "={{ $json.content }}"
+      },
+      "type": "n8n-nodes-base.crypto",
+      "typeVersion": 1,
+      "position": [
+        1504,
+        352
+      ],
+      "id": "/* redacted-id */",
+      "name": "Generate Hash (Retrieval)",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.link }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        896,
+        352
+      ],
+      "id": "/* redacted-id */",
+      "name": "Google Docs HTTP Request",
+      "alwaysOutputData": false,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentId": "/* redacted */",
+        "sheetName": "/* redacted */",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Cover Letter": "={{ $json.message.content.cover_letter }}",
+            "Job ID": "={{ $('Sanatise').item.json.job.message.content.job_id }}",
+            "Company Name": "={{ $('Sanatise').item.json.job.message.content.company_name }}",
+            "Job Description": "={{ $('Sanatise').item.json.job.message.content.role_description }}",
+            "Post Date": "={{ $('Sanatise').item.json.job.message.content.posted_date }}",
+            "Title": "={{ $('Sanatise').item.json.job.message.content.position }}",
+            "Link": "={{ $('Sanatise').item.json.job.message.content.application_url }}",
+            "Industry": "={{ $('Sanatise').item.json.job.message.content.industry }}",
+            "Location": "={{ $('Sanatise').item.json.job.message.content.location }}",
+            "Compensation": "={{ $('Sanatise').item.json.job.message.content.salary }}",
+            "Company Overview": "={{ $('Sanatise').item.json.job.message.content.company_info }}",
+            "Apply Score": "={{ $json.message.content.skill_match }}",
+            "Seniority Level": "={{ $('Sanatise').item.json.job.message.content.seniority_level }}"
+          },
+          "matchingColumns": [
+            "Job ID"
+          ],
+          "schema": [
+            {
+              "id": "Company Name",
+              "displayName": "Company Name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Company Overview",
+              "displayName": "Company Overview",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Industry",
+              "displayName": "Industry",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Link",
+              "displayName": "Link",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Applied Status",
+              "displayName": "Applied Status",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Post Date",
+              "displayName": "Post Date",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Job ID",
+              "displayName": "Job ID",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Title",
+              "displayName": "Title",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Job Description",
+              "displayName": "Job Description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Seniority Level",
+              "displayName": "Seniority Level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Apply Score",
+              "displayName": "Apply Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Compensation",
+              "displayName": "Compensation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Location",
+              "displayName": "Location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Cover Letter",
+              "displayName": "Cover Letter",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "row_number",
+              "displayName": "row_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true,
+              "readOnly": true,
+              "removed": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.6,
+      "position": [
+        2432,
+        800
+      ],
+      "id": "/* redacted-id */",
+      "name": "Update row in sheet",
+      "credentials": "/* redacted */",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        672,
+        336
+      ],
+      "id": "/* redacted-id */",
+      "name": "Loop Over Items"
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Collect all existing Job_IDs from Google Sheet (normalize as strings)\nconst existingJobIds = $items(\"Check Job Ids\")\n  .map(item => item.json[\"Job ID\"])\n  .filter(id => id !== undefined && id !== null)\n  .map(id => id.toString().trim());\n\nconsole.log('Existing Job IDs from Sheet:', existingJobIds);\n\n// 2. Filter job postings by checking if the job ID (from link) exists in the sheet\nconst filtered = $items(\"Extract Job Postings\").filter(item => {\n  const link = item.json.link;\n  if (!link) return false;\n\n  // Extract the job ID from the end of the link\n  const jobId = link.split('-').pop()?.trim();\n\n  console.log(`Checking Job ID from link \"${link}\":`, jobId);\n\n  // Return only if this ID is NOT in the existing ones\n  return jobId && !existingJobIds.includes(jobId);\n});\n\nconsole.log(`Filtered ${filtered.length} new job(s) out of ${$items(\"Extract Job Postings\").length}.`);\n\nreturn filtered;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        112
+      ],
+      "id": "/* redacted-id */",
+      "name": "De-duplicate"
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2240,
+        800
+      ],
+      "id": "/* redacted-id */",
+      "name": "Wait",
+      "webhookId": "/* redacted */"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/ySXwZZIfFfBHSbaa.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -640,
+        64
+      ],
+      "id": "/* redacted-id */",
+      "name": "Adaptive Security"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/eHIPKvU02AIkSMQ4.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -640,
+        -800
+      ],
+      "id": "/* redacted-id */",
+      "name": "AirBnb"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/7iMuGlZapnUMU0ln.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -640,
+        800
+      ],
+      "id": "/* redacted-id */",
+      "name": "Aircall"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/A7kVNWvtlMv5y3xE.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -640,
+        -416
+      ],
+      "id": "/* redacted-id */",
+      "name": "Airtable"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/dADIzsE7WbboeRaF.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -480,
+        64
+      ],
+      "id": "/* redacted-id */",
+      "name": "Altassian"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/rZYmwUQJBAcWiCVI.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -480,
+        -416
+      ],
+      "id": "/* redacted-id */",
+      "name": "Amplitude"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/KI2zvb4I7yihz4Ml.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -640,
+        1152
+      ],
+      "id": "/* redacted-id */",
+      "name": "Anthropic"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/bGBSq33HlVaziFWO.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -320,
+        -416
+      ],
+      "id": "/* redacted-id */",
+      "name": "Asana"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/JP5JUYgde1793Kw7.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -320,
+        64
+      ],
+      "id": "/* redacted-id */",
+      "name": "Box"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/Ut6odkMAOq4pkYvc.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -640,
+        1536
+      ],
+      "id": "/* redacted-id */",
+      "name": "Brex"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/KeolhGl0SnaZvlpO.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -480,
+        1536
+      ],
+      "id": "/* redacted-id */",
+      "name": "C3.ai"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/BeVj12ntk4eHYYA8.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -320,
+        1536
+      ],
+      "id": "/* redacted-id */",
+      "name": "Canonical"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/ZvH89DN2GJH8THWU.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -480,
+        1152
+      ],
+      "id": "/* redacted-id */",
+      "name": "Character.ai"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/pyelI06HV82RzQmh.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -160,
+        64
+      ],
+      "id": "/* redacted-id */",
+      "name": "Column"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/rW9EL5r0S7PAPsUv.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -320,
+        1152
+      ],
+      "id": "/* redacted-id */",
+      "name": "Decagon"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/O6ULp2WHQDIRtBaV.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -480,
+        416
+      ],
+      "id": "/* redacted-id */",
+      "name": "Docusign"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/gyPZHelbMIQ0mrbm.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -160,
+        -416
+      ],
+      "id": "/* redacted-id */",
+      "name": "Figma"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/62TgparWAKxqg1bH.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -480,
+        800
+      ],
+      "id": "/* redacted-id */",
+      "name": "Front"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/RFZyROjOA95lllsK.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -320,
+        416
+      ],
+      "id": "/* redacted-id */",
+      "name": "Google"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/eC3N7RaxrTVp5FQC.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -640,
+        -288
+      ],
+      "id": "/* redacted-id */",
+      "name": "Hex"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/ZgpCn7SYl53TXsxJ.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -480,
+        -288
+      ],
+      "id": "/* redacted-id */",
+      "name": "Lattice"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/B4XdGbYRGYZ6Wwi3.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -160,
+        416
+      ],
+      "id": "/* redacted-id */",
+      "name": "LinkedIn"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/M660inecMw8L5ZEC.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -160,
+        1152
+      ],
+      "id": "/* redacted-id */",
+      "name": "Lilt"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/NppjGuh2XC5672F9.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -480,
+        -800
+      ],
+      "id": "/* redacted-id */",
+      "name": "Lyft"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/Q6vT1oqIOf0496eU.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -640,
+        544
+      ],
+      "id": "/* redacted-id */",
+      "name": "Meta"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/tZo5S9xvYjEli7ZA.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -320,
+        -288
+      ],
+      "id": "/* redacted-id */",
+      "name": "Miro"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/hK57Hn55FBf10AfD.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -320,
+        800
+      ],
+      "id": "/* redacted-id */",
+      "name": "Mithril"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/OaSm44DAu2CdcmHd.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -640,
+        1664
+      ],
+      "id": "/* redacted-id */",
+      "name": "Modern Treasury"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/yQywYyxjcVi6MmL4.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -160,
+        -288
+      ],
+      "id": "/* redacted-id */",
+      "name": "Notion"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/aX5LLCUX2A7U6YHO.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -160,
+        800
+      ],
+      "id": "/* redacted-id */",
+      "name": "Nova Credit"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/Zrm3KJc4PJGbOxVU.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -640,
+        192
+      ],
+      "id": "/* redacted-id */",
+      "name": "OneSchema"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/3SZHFAoHdNQhdaii.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -640,
+        1280
+      ],
+      "id": "/* redacted-id */",
+      "name": "Open AI"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/in0vgRR11dkETGiZ.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -320,
+        -800
+      ],
+      "id": "/* redacted-id */",
+      "name": "Open Table"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/HKoF3t5SXPuPYvpz.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -480,
+        1664
+      ],
+      "id": "/* redacted-id */",
+      "name": "Pilot"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/andUgjywrPBIuYC0.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -320,
+        1664
+      ],
+      "id": "/* redacted-id */",
+      "name": "Plaid"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/HjH8QzysF1C0BEfa.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -480,
+        192
+      ],
+      "id": "/* redacted-id */",
+      "name": "Postman"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/KCN9EhSEqEvQwJ0W.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -160,
+        1664
+      ],
+      "id": "/* redacted-id */",
+      "name": "Ramp"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/baQ6eqLUc6SCNsQU.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -480,
+        544
+      ],
+      "id": "/* redacted-id */",
+      "name": "Reddit"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/eXBAUaWyiK7iDwF8.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -640,
+        1792
+      ],
+      "id": "/* redacted-id */",
+      "name": "Rippling"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/NaicOOfaIZtVO0qh.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -320,
+        544
+      ],
+      "id": "/* redacted-id */",
+      "name": "Salesforce"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/VGtUd4n89OGQiLEb.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -480,
+        -672
+      ],
+      "id": "/* redacted-id */",
+      "name": "ServiceNow"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/ww7FieUaU193qbjI.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -160,
+        -800
+      ],
+      "id": "/* redacted-id */",
+      "name": "SevenRooms"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/eUrlsmLVR5uRvNeW.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -160,
+        544
+      ],
+      "id": "/* redacted-id */",
+      "name": "Stripe"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/msppZXGwc9shVmsr.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -320,
+        -672
+      ],
+      "id": "/* redacted-id */",
+      "name": "Square"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/GEfJUeH8VHyWsIGu.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -640,
+        -672
+      ],
+      "id": "/* redacted-id */",
+      "name": "Toast"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/qpcUBm2DWMO8aQgJ.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -480,
+        1280
+      ],
+      "id": "/* redacted-id */",
+      "name": "Together AI"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/5C1AS9mvisu6DHJJ.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -480,
+        1792
+      ],
+      "id": "/* redacted-id */",
+      "name": "Vanta"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/B3K1hXR5L3ZOeSKC.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -320,
+        192
+      ],
+      "id": "/* redacted-id */",
+      "name": "Verkada"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/ofxlZsnLyEWNe97R.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -640,
+        -160
+      ],
+      "id": "/* redacted-id */",
+      "name": "WalkMe"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/rApk9CSJj7a0u7u4.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -320,
+        1280
+      ],
+      "id": "/* redacted-id */",
+      "name": "Weights & Biases"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/oCNOuH6YqJwF40zv.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -160,
+        1280
+      ],
+      "id": "/* redacted-id */",
+      "name": "Writer"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/lpyD42ZQI2fCPcnh.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -480,
+        -160
+      ],
+      "id": "/* redacted-id */",
+      "name": "Zapier"
+    },
+    {
+      "parameters": {
+        "numberInputs": 10
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        32,
+        1536
+      ],
+      "id": "/* redacted-id */",
+      "name": "Merge1"
+    },
+    {
+      "parameters": {
+        "numberInputs": 5
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        32,
+        816
+      ],
+      "id": "/* redacted-id */",
+      "name": "Merge2"
+    },
+    {
+      "parameters": {
+        "numberInputs": 8
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        32,
+        384
+      ],
+      "id": "/* redacted-id */",
+      "name": "Merge5"
+    },
+    {
+      "parameters": {
+        "content": "# **B2B SaaS & Business Enablement Platforms**",
+        "height": 336,
+        "width": 832,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -672,
+        736
+      ],
+      "typeVersion": 1,
+      "id": "/* redacted-id */",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "# **AI & Machine Learning**",
+        "height": 368,
+        "width": 832
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -672,
+        1088
+      ],
+      "typeVersion": 1,
+      "id": "/* redacted-id */",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "# **Hospitality & On-Demand Platforms**",
+        "height": 368,
+        "width": 832,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -672,
+        -864
+      ],
+      "typeVersion": 1,
+      "id": "/* redacted-id */",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "# **Consumer, Social & Enterprise Giants**",
+        "height": 368,
+        "width": 832,
+        "color": 7
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -688,
+        352
+      ],
+      "typeVersion": 1,
+      "id": "/* redacted-id */",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "numberInputs": 8
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        32,
+        1120
+      ],
+      "id": "/* redacted-id */",
+      "name": "Merge7"
+    },
+    {
+      "parameters": {
+        "content": "# **Developer Tools & Security Platforms**",
+        "height": 336,
+        "width": 832,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -672,
+        0
+      ],
+      "typeVersion": 1,
+      "id": "/* redacted-id */",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "# **Work Management & Collaboration**",
+        "height": 464,
+        "width": 832,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -672,
+        -480
+      ],
+      "typeVersion": 1,
+      "id": "/* redacted-id */",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "content": "# **Fintech & Business Infrastructure**",
+        "height": 464,
+        "width": 832,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -672,
+        1472
+      ],
+      "typeVersion": 1,
+      "id": "/* redacted-id */",
+      "name": "Sticky Note6"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 6
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -1440,
+        480
+      ],
+      "id": "/* redacted-id */",
+      "name": "Schedule Trigger2"
+    },
+    {
+      "parameters": {
+        "amount": 2.25
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -912,
+        1216
+      ],
+      "id": "/* redacted-id */",
+      "name": "Wait2",
+      "webhookId": "/* redacted */"
+    },
+    {
+      "parameters": {
+        "numberInputs": 7
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        32,
+        -800
+      ],
+      "id": "/* redacted-id */",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "numberInputs": 7
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        32,
+        32
+      ],
+      "id": "/* redacted-id */",
+      "name": "Merge3"
+    },
+    {
+      "parameters": {
+        "numberInputs": 10
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        32,
+        -416
+      ],
+      "id": "/* redacted-id */",
+      "name": "Merge4"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/SNNcZIUzRmuVrCYZ.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -160,
+        1536
+      ],
+      "id": "/* redacted-id */",
+      "name": "Databricks"
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -912,
+        480
+      ],
+      "id": "/* redacted-id */",
+      "name": "Wait1",
+      "webhookId": "/* redacted */"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/cG4P2CNLzIJGC57x.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -640,
+        416
+      ],
+      "id": "/* redacted-id */",
+      "name": "Adobe"
+    },
+    {
+      "parameters": {
+        "url": "https://rss.app/feeds/uBBasq6qFfdAW3gO.xml",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.2,
+      "position": [
+        -640,
+        928
+      ],
+      "id": "/* redacted-id */",
+      "name": "Zendesk"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  const parsed = JSON.parse(item.json.content); // Parse stringified JSON from the sheet\n\n  return {\n    json: {\n      resume: {\n        text_summary: parsed.text_summary || \"\",\n        skills: {\n          technical: parsed.skills?.technical || [],\n          transferable: parsed.skills?.transferable || [],\n          soft: parsed.skills?.soft || []\n        },\n        total_yoe: parsed.total_yoe || \"\",\n        tech_yoe: parsed.tech_yoe || \"\",\n        experience: parsed.experience || []\n      }\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1696,
+        576
+      ],
+      "id": "/* redacted-id */",
+      "name": "Format Cached Data"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "documentURL": "/* redacted-url */"
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        1760,
+        112
+      ],
+      "id": "/* redacted-id */",
+      "name": "Get CV",
+      "credentials": "/* redacted */"
+    },
+    {
+      "parameters": {
+        "amount": 1
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -912,
+        -736
+      ],
+      "id": "/* redacted-id */",
+      "name": "Wait3",
+      "webhookId": "/* redacted */"
+    },
+    {
+      "parameters": {
+        "amount": 1.5
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -912,
+        -288
+      ],
+      "id": "/* redacted-id */",
+      "name": "Wait4",
+      "webhookId": "/* redacted */"
+    },
+    {
+      "parameters": {
+        "amount": 2
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -912,
+        128
+      ],
+      "id": "/* redacted-id */",
+      "name": "Wait5",
+      "webhookId": "/* redacted */"
+    },
+    {
+      "parameters": {
+        "amount": 2.25
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -912,
+        864
+      ],
+      "id": "/* redacted-id */",
+      "name": "Wait6",
+      "webhookId": "/* redacted */"
+    },
+    {
+      "parameters": {
+        "amount": 2.25
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -912,
+        1664
+      ],
+      "id": "/* redacted-id */",
+      "name": "Wait7",
+      "webhookId": "/* redacted */"
+    },
+    {
+      "parameters": {
+        "amount": 1
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        800,
+        576
+      ],
+      "id": "/* redacted-id */",
+      "name": "Wait9",
+      "webhookId": "/* redacted */"
+    },
+    {
+      "parameters": {
+        "numberInputs": 7
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        384,
+        400
+      ],
+      "id": "/* redacted-id */",
+      "name": "Merge6"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Extract Job Postings": {
+      "main": [
+        [
+          {
+            "node": "Check Job Ids",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check Job Ids": {
+      "main": [
+        [
+          {
+            "node": "De-duplicate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract And Gather Company Info": {
+      "main": [
+        [
+          {
+            "node": "Merge job and Resume",
+            "type": "main",
+            "index": 1
+          },
+          {
+            "node": "Update Job Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update Job Sheet": {
+      "main": [
+        [
+          {
+            "node": "Get CV",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Fetched Cached Content": {
+      "main": [
+        [
+          {
+            "node": "If Not Cached",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If Not Cached": {
+      "main": [
+        [
+          {
+            "node": "Content to Cache",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Cached Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Hash (Caching)": {
+      "main": [
+        [
+          {
+            "node": "Structure Resume CV",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge job and Resume": {
+      "main": [
+        [
+          {
+            "node": "Sanatise",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Data to Cache": {
+      "main": [
+        [
+          {
+            "node": "Merge job and Resume",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structure Resume CV": {
+      "main": [
+        [
+          {
+            "node": "Add Data to Cache",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sanatise": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Wait",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Content to Cache": {
+      "main": [
+        [
+          {
+            "node": "Generate Hash (Caching)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Hash (Retrieval)": {
+      "main": [
+        [
+          {
+            "node": "Fetched Cached Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Docs HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Wait9",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Update row in sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Items": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Google Docs HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "De-duplicate": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait": {
+      "main": [
+        [
+          {
+            "node": "Update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AirBnb": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aircall": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Airtable": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Altassian": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Notion": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 7
+          }
+        ]
+      ]
+    },
+    "Nova Credit": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Pilot": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Plaid": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
+    },
+    "Rippling": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 8
+          }
+        ]
+      ]
+    },
+    "Salesforce": {
+      "main": [
+        [
+          {
+            "node": "Merge5",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
+    },
+    "Square": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
+    },
+    "Toast": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Verkada": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
+    },
+    "WalkMe": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 8
+          }
+        ]
+      ]
+    },
+    "Adaptive Security": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Amplitude": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Anthropic": {
+      "main": [
+        [
+          {
+            "node": "Merge7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Box": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Asana": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Brex": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "C3.ai": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Canonical": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 2
+          },
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Character.ai": {
+      "main": [
+        [
+          {
+            "node": "Merge7",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Column": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Decagon": {
+      "main": [
+        [
+          {
+            "node": "Merge7",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Docusign": {
+      "main": [
+        [
+          {
+            "node": "Merge5",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Google": {
+      "main": [
+        [
+          {
+            "node": "Merge5",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Front": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Figma": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Hex": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Lattice": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "LinkedIn": {
+      "main": [
+        [
+          {
+            "node": "Merge5",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Lilt": {
+      "main": [
+        [
+          {
+            "node": "Merge7",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Lyft": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Meta": {
+      "main": [
+        [
+          {
+            "node": "Merge5",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Miro": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
+    },
+    "Mithril": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Modern Treasury": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Open Table": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Open AI": {
+      "main": [
+        [
+          {
+            "node": "Merge7",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "OneSchema": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Zapier": {
+      "main": [
+        [
+          {
+            "node": "Merge4",
+            "type": "main",
+            "index": 9
+          }
+        ]
+      ]
+    },
+    "Writer": {
+      "main": [
+        [
+          {
+            "node": "Merge7",
+            "type": "main",
+            "index": 7
+          }
+        ]
+      ]
+    },
+    "Weights & Biases": {
+      "main": [
+        [
+          {
+            "node": "Merge7",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
+    },
+    "Vanta": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 9
+          }
+        ]
+      ]
+    },
+    "Together AI": {
+      "main": [
+        [
+          {
+            "node": "Merge7",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Stripe": {
+      "main": [
+        [
+          {
+            "node": "Merge5",
+            "type": "main",
+            "index": 7
+          }
+        ]
+      ]
+    },
+    "SevenRooms": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "ServiceNow": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Reddit": {
+      "main": [
+        [
+          {
+            "node": "Merge5",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Ramp": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 7
+          }
+        ]
+      ]
+    },
+    "Postman": {
+      "main": [
+        [
+          {
+            "node": "Merge3",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Merge7": {
+      "main": [
+        [
+          {
+            "node": "Merge6",
+            "type": "main",
+            "index": 5
+          }
+        ]
+      ]
+    },
+    "Merge1": {
+      "main": [
+        [
+          {
+            "node": "Merge6",
+            "type": "main",
+            "index": 6
+          }
+        ]
+      ]
+    },
+    "Merge5": {
+      "main": [
+        [
+          {
+            "node": "Merge6",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Merge2": {
+      "main": [
+        [
+          {
+            "node": "Merge6",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger2": {
+      "main": [
+        [
+          {
+            "node": "Wait3",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait7",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait2",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait6",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait5",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait2": {
+      "main": [
+        [
+          {
+            "node": "Anthropic",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Character.ai",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Decagon",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Lilt",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Open AI",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Together AI",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Weights & Biases",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Writer",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Merge6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge3": {
+      "main": [
+        [
+          {
+            "node": "Merge6",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Merge4": {
+      "main": [
+        [
+          {
+            "node": "Merge6",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Databricks": {
+      "main": [
+        [
+          {
+            "node": "Merge1",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    },
+    "Wait1": {
+      "main": [
+        [
+          {
+            "node": "Adobe",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Docusign",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Google",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "LinkedIn",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Meta",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Reddit",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Salesforce",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Stripe",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Adobe": {
+      "main": [
+        [
+          {
+            "node": "Merge5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Zendesk": {
+      "main": [
+        [
+          {
+            "node": "Merge2",
+            "type": "main",
+            "index": 4
+          }
+        ]
+      ]
+    },
+    "Format Cached Data": {
+      "main": [
+        [
+          {
+            "node": "Merge job and Resume",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get CV": {
+      "main": [
+        [
+          {
+            "node": "Generate Hash (Retrieval)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait3": {
+      "main": [
+        [
+          {
+            "node": "Square",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "ServiceNow",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Toast",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "SevenRooms",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Open Table",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Lyft",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AirBnb",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait4": {
+      "main": [
+        [
+          {
+            "node": "Airtable",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Amplitude",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Figma",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Asana",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Hex",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Lattice",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Miro",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Notion",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "WalkMe",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Zapier",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait5": {
+      "main": [
+        [
+          {
+            "node": "Adaptive Security",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Altassian",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Box",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Column",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "OneSchema",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Postman",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Verkada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait6": {
+      "main": [
+        [
+          {
+            "node": "Aircall",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Front",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mithril",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Nova Credit",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Zendesk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait7": {
+      "main": [
+        [
+          {
+            "node": "Brex",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "C3.ai",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Canonical",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Databricks",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Modern Treasury",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Pilot",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Plaid",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Ramp",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Rippling",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Vanta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait9": {
+      "main": [
+        [
+          {
+            "node": "Extract And Gather Company Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge6": {
+      "main": [
+        [
+          {
+            "node": "Extract Job Postings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "/* redacted-id */",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "/* redacted-id */"
+  },
+  "id": "UhidrHfhKmTw5nCX",
+  "tags": []
+}
