@@ -22,9 +22,16 @@ Originally built to support my transition from high-performance kitchen operatio
 4. **Enriches** job data with company metadata, keywords, and technical/functional skill extraction using GPT.  
 5. **Parses** my resume into structured JSON for skill-matching.  
 6. **Scores** job fit on a custom 1–5 scale designed for my industry pivot.  
-7. **Generates** tailored, ATS-friendly cover letters.  
-8. **Updates** a Google Sheet with clean, consistent job records.  
+7. **Generates** tailored, ATS-friendly base cover letter.  
+8. **Updates** a Google Sheet with clean, consistent job records.
+## 🛠️ Technical Improvements
 
+###  Key Improvements in v2
+- **Improved Job Data Collection -** Expanded extracted fields to include role descriptions, functional keywords, technical skills, and richer company metadata.
+- **Updated Ranking System for Skill Alignment -** Rebuilt the scoring logic to weight technical overlaps and domain fit more heavily, ensuring high scores only go to truly relevant roles.
+###  Key Improvements in v3
+- **RSS Rate Limiting -** Staggered RSS feed collection to respect RSS.app service limits.
+- **Fixed Loop Conflicts -** Resolved Split in Batches timing issues that caused incomplete processing.
 ---
 ## 🐣 Project Evolution
 
@@ -32,55 +39,57 @@ Originally built to support my transition from high-performance kitchen operatio
 |----------|----------------------------------|------------------|
 | **🥚 v1** | Initial Automation               | - Basic RSS feed ingestion  <br> - Simple filtering and skill matching <br> - Resume parsed via HTTP  <br> - Basic Google Sheets logging |
 | **🐥 v2** | Enhanced Data & Reliability      | - Switched to Google Docs API for cleaner resume data <br> - Improved job metadata extraction <br> - Expanded filtering logic to reduce noise <br> - Upgraded to 1–5+ ranking system |
-| **🐓 v3** | Precision Scoring (Current)      | - Fully redesigned ranking logic <br> - Focused on *likelihood of success* over raw skill match <br> - Simplified back to 1–5 scale <br> - Filtered out high-skill but low-fit roles |
+| **🐓 v3** | Precision Scoring and Processing (Current)      | - Fully redesigned ranking logic focused on hiring likelihood <br> - Fixed RSS batch processing and sequential job handling <br> - Improved API cost control and error handling <br> - Simplified back to 1–5 scale for clearer prioritization |
+
 
 
 ---
 ## 🧰 Tech Stack
-- **n8n** — workflow automation  
-- **RSS Feeds** — company job listings  
-- **OpenAI API** — data extraction, enrichment, and cover letter generation  
-- **Google Sheets API** — logging and tracking job applications  
-- **Google Docs API** — direct resume retrieval  
-- **JavaScript** — custom filtering, caching, and data transformation  
+- **n8n -** workflow automation  
+- **RSS Feeds -** company job listings  
+- **OpenAI API -** data extraction, enrichment, and cover letter generation  
+- **Google Sheets API -** logging and tracking job applications  
+- **Google Docs API -** direct resume retrieval  
+- **JavaScript -** custom filtering, caching, and data transformation  
 
 ---
 
 ## 📐 Workflow Architecture
 
-[RSS Feeds]
-→ [Initial Role & Seniority Filtering]
-→ [Deduplication by Job ID]
-→ [Collect Job Data + Metadata]
-→ [Resume Retrieval via Google Docs API]
-→ [Precision Fit Scoring]
-→ [Cover Letter Generation]
-→ [Google Sheets Update]
+RSS Feeds (Rate Limited)  
+&nbsp;→ Sequential Processing Pipeline  
+&nbsp;&nbsp;→ Initial Role & Seniority Filtering  
+&nbsp;&nbsp;→ Deduplication by Job ID  
+&nbsp;&nbsp;→ One-by-One Job Processing:  
+&nbsp;&nbsp;&nbsp;&nbsp;→ Resume Retrieval via Google Docs API  
+&nbsp;&nbsp;&nbsp;&nbsp;→ Precision Fit Scoring  
+&nbsp;&nbsp;&nbsp;&nbsp;→ Cover Letter Generation  
+&nbsp;&nbsp;→ Google Sheets Update  
 
 ---
 
 ## 🖼️ Visual Overview
 
-### 🔹 Detailed Workflow Diagram  
+### Detailed Workflow Diagram  
 A high-level, color-coded breakdown of the full automation flow:
 
 ![Detailed Workflow](Media/diagram-detailed.png)
 
 ---
 
-### 🔹 Real Workflow from n8n  
+### Real Workflow from n8n  
 Here’s the live view from my n8n instance, showing the full node structure:
 
-![n8n Screenshot](Media/Workflow-light-v2.png)
+![n8n Screenshot](Media/Workflow-light-v3.png)
 
 ---
 
 ## 📚 Lessons Learned
-- Stronger **front-end filtering** saves time, tokens, and cleanup.  
+- Stronger front-end filtering saves time, tokens, and cleanup.  
 - Direct API connections (Google Docs) are more reliable than scraping.  
 - A clean caching system improves stability and efficiency.  
-- Ranking logic must be **customized to your pivot**.
-- **Career pivot scoring** requires different logic than traditional skill matching.
+- Ranking logic must be customized to your pivot.
+- Career pivot scoring requires different logic than traditional skill matching.
 
 ---
 
@@ -105,4 +114,4 @@ Here’s the live view from my n8n instance, showing the full node structure:
 ---
 
 ## ➡️ Next Steps
-- Integrate Slack/Email alerts for high-scoring roles.
+- Integrate alerts for high-scoring roles. Integrate data with Notion API
