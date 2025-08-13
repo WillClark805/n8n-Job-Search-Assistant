@@ -1,5 +1,5 @@
 # Automated Job Search Workflow (n8n + OpenAI + Google Sheets)
-**Version 3 — Rebuilt for Precision Scoring and True Job-Fit Assessment**
+**Version 4 — Targeted Filtering and Higher-Fit Role Prioritization**
 
 <picture>
   <img src="https://github.com/user-attachments/assets/61f9663d-570c-4459-b5dd-089c562e148b" width="20" height="20" alt="Notion logo" />
