@@ -12,18 +12,20 @@ Explore the full breakdown of this project across v1 → v3 with diagrams, scree
 ## Overview
 This workflow automates the sourcing, filtering, enrichment, and ranking of job postings in San Francisco’s tech sector. It specifically targets business operations, product operations, and project coordination roles that align with my transferable experience.
 
-Originally built to support my transition from high performance kitchen operations into tech, the system now includes a revamped ranking model. Instead of just skill overlap, it focuses on real world hiring likelihood. It prioritizes roles that reflect both my strengths and viable entry points helping surface fewer, higher value opportunities and reduce time spent on low fit applications
+Originally built to support my transition from high-performance kitchen operations into tech, the system now includes a two-stage seniority filter: an initial keyword/date pass early in the pipeline, and a new strict if node later that removes any senior roles before resume parsing and scoring. This ensures only relevant, achievable roles make it to the application stage.
 > ⚠️ **This is a redacted version.** Personal document links, API credentials, and private RSS feeds have been removed for security.
 
 ### 🔧 The system:
 1. **Collects** postings from targeted RSS feeds for selected tech companies.  
 2. **Filters** irrelevant and senior level roles before processing.  
-3. **Deduplicates** jobs already logged in Google Sheets.  
-4. **Enriches** job data with company metadata, keywords, and technical/functional skill extraction using GPT.  
-5. **Parses** my resume into structured JSON for matching.  
-6. **Scores** job fit on a custom 1–5 scale designed for my industry pivot.  
-7. **Generates** tailored, ATS riendly base cover letter.  
-8. **Updates** a Google Sheet with clean, consistent job records.
+3. **Deduplicates** jobs already stored in Notion.  
+4. **Enriches** job data with company metadata, keywords, and technical/functional skill extraction using GPT.
+5. **Applies strict seniority filters** to remove any remaining senior roles 
+6. **Parses** my resume into structured JSON for matching.  
+7. **Scores** job fit using a weighted model for hiring likelihood (experience level, role alignment, technical barrier, and company signals). 
+8. **Generates** tailored, ATS friendly base cover letter.  
+9. **Updates** Notion database for centralized tracking
+---
 ## 🛠️ Technical Improvements
 
 ###  Key Improvements in v2
@@ -32,6 +34,9 @@ Originally built to support my transition from high performance kitchen operatio
 ###  Key Improvements in v3
 - **RSS Rate Limiting -** Staggered RSS feed collection to respect RSS.app service limits.
 - **Fixed Loop Conflicts -** Resolved Split in Batches timing issues that caused incomplete processing.
+###  Key Improvements in v4
+- **Notion Integration -** Replaced Google Sheets tracking with a Notion database for richer search, filtering, and dashboarding
+- **Two-Stage Seniority Filtering -** Added a new strict if node after job enrichment to catch and remove any senior roles that pass the initial keyword/date filter.
 ---
 ## 🐣 Project Evolution
 
@@ -40,7 +45,7 @@ Originally built to support my transition from high performance kitchen operatio
 | **🥚 v1** | Initial Automation               | - Basic RSS feed ingestion  <br> - Simple filtering and skill matching <br> - Resume parsed via HTTP  <br> - Basic Google Sheets logging |
 | **🐥 v2** | Enhanced Data & Reliability      | - Switched to Google Docs API for cleaner resume data <br> - Improved job metadata extraction <br> - Expanded filtering logic to reduce noise <br> - Upgraded to 1–5+ ranking system |
 | **🐓 v3** | Precision Scoring and Processing (Current)      | - Fully redesigned ranking logic focused on hiring likelihood <br> - Fixed RSS batch processing and sequential job handling <br> - Improved API cost control and error handling <br> - Simplified back to 1–5 scale for clearer prioritization |
-
+| **🍗 v4** | Notion Integration & Filtering              | - Notion API storage <br> - Senior role exclusion via if node <br> - Normalized seniority outputs |
 
 
 ---
@@ -48,7 +53,7 @@ Originally built to support my transition from high performance kitchen operatio
 - **n8n -** workflow automation  
 - **RSS Feeds -** company job listings  
 - **OpenAI API -** data extraction, enrichment, and cover letter generation  
-- **Google Sheets API -** logging and tracking job applications  
+- **Notion API -** data storage and visualzation  
 - **Google Docs API -** direct resume retrieval  
 - **JavaScript -** custom filtering, caching, and data transformation  
 
@@ -58,7 +63,9 @@ Originally built to support my transition from high performance kitchen operatio
 
 RSS Feeds (Rate Limited)  
 → Initial Role & Seniority Filtering  
-→ Deduplication by Job ID  
+→ Deduplication by Job ID in Notion  
+→ Job Data Enrichment (metadata + skill extraction)  
+→ Strict Seniority Filter  
 → Sequential Job Processing:  
 &nbsp;&nbsp;&nbsp;→ Resume Retrieval via Google Docs API  
 &nbsp;&nbsp;&nbsp;→ Precision Fit Scoring  
@@ -79,16 +86,16 @@ A high-level, color-coded breakdown of the full automation flow:
 ### Real Workflow from n8n  
 Here’s the live view from my n8n instance, showing the full node structure:
 
-![n8n Screenshot](Media/Workflow-light-v3.png)
+![n8n Screenshot](Media/Workflow-light-v4.png)
 
 ---
 
 ## 📚 Lessons Learned
-- Stronger front-end filtering saves time, tokens, and cleanup.  
+- Stronger front-end filtering saves time, tokens, and reduces noise.
 - Direct API connections (Google Docs) are more reliable than scraping.  
 - A clean caching system improves stability and efficiency.  
 - Ranking logic must be customized to your pivot.
-- Career pivot scoring requires different logic than traditional skill matching.
+- Data normalization is key for downstream processing and filtering.
 
 ---
 
@@ -98,7 +105,8 @@ Here’s the live view from my n8n instance, showing the full node structure:
 2. Import `Job_Search_Automation_v3.json` into n8n.  
 3. Add environment variables:  
    - `OPENAI_API_KEY`  
-   - Google API credentials for **Sheets** and **Docs**  
+   - Google API credentials **Docs**
+   - Notion API and database ID
 4. Replace RSS feed URLs with your own target company feeds.  
 5. Trigger manually or schedule daily runs.  
 
@@ -113,4 +121,4 @@ Here’s the live view from my n8n instance, showing the full node structure:
 ---
 
 ## ➡️ Next Steps
-- Integrate alerts for high-scoring roles. Integrate data with Notion API
+- Integrate alerts for high-scoring roles.
