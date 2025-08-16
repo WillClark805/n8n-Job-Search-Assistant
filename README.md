@@ -5,7 +5,7 @@
   <img src="https://github.com/user-attachments/assets/61f9663d-570c-4459-b5dd-089c562e148b" width="20" height="20" alt="Notion logo" />
 </picture>
 <strong>Notion Walkthrough:</strong>
-Explore the full breakdown of this project across v1 → v3 with diagrams, screenshots, notes, metrics, and lessons learned:
+Explore the full breakdown of this project across v1 → v4 with diagrams, screenshots, notes, metrics, and lessons learned:
 
 👉 [View my full project in Notion](https://working-knuckle-420.notion.site/n8n-Job-Search-Assistant-248b1441915d8047a5a6d67c81a91ddc)
 
